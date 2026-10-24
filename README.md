@@ -30,7 +30,7 @@ The page loads Tailwind CSS, Lucide icons, Canvas Confetti, and Google Fonts fro
 
 ## Use at an event
 
-1. Open **Event Settings** and configure the event name, date, footer message, optional logo, print theme, camera, countdown, and automatic reset.
+1. Open **Event Settings** and configure the event name, date, footer message, optional logo, print theme, camera, countdown, and automatic reset. The event name, date, and footer message are saved in that browser on that device and remain after a refresh or guest reset.
 2. Select a photo layout and allow camera access.
 3. Frame the shot and tap the shutter. Multi-photo layouts capture the photos in sequence.
 4. Review the result. Download it, or choose **Print / Share Photo**. On iPad, choose **Print** from the share sheet, then select the Canon SELPHY.
@@ -43,6 +43,7 @@ On iPad, the print action shares the finished image to the system share sheet so
 ## Project files
 
 - `index.html` — application interface and web app metadata.
-- `app.js` — camera, capture, photo rendering, gallery, settings, and printing logic.
-- `styles.css` and `tailwind.config.js` — custom styles and theme configuration.
+- `app.js` — camera, capture flow, photo composition, gallery, settings, and printing logic.
+- `border-frames.js` and `border-frames.css` — decorative frame drawing, available frame options, and their selector previews.
+- `styles.css` and `tailwind.config.js` — kiosk, layout, print, and shared theme styles.
 - `manifest.json` and `app-icon.*` — installable app metadata and icons.

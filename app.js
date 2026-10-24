@@ -1,3 +1,5 @@
+const EVENT_TEXT_STORAGE_KEY = 'photobooth-event-text-v1';
+
 const state = {
 
             currentScreen: 'mode',
@@ -19,8 +21,8 @@ const state = {
             eventData: {
 
                 title: "DENNIS & HONG'S WEDDING",
-                date: "",
-                subtitle: "",
+                date: "MAY 20, 2028",
+                subtitle: "Thank you for joining us!",
 
                 countdownSeconds: 3,
 
@@ -31,6 +33,18 @@ const state = {
             webcamStream: null,
 
             cameraStartPromise: null,
+
+            captureInProgress: false,
+
+            captureCancelled: false,
+
+            countdownInterval: null,
+
+            countdownResolve: null,
+
+            captureDelayTimeout: null,
+
+            captureDelayResolve: null,
 
             selectedCameraId: '',
 
@@ -98,9 +112,57 @@ const state = {
 
             lucide.createIcons();
 
+            loadPersistentEventText();
+            document.getElementById('cfg-title').value = state.eventData.title;
+            document.getElementById('cfg-date').value = state.eventData.date;
+            document.getElementById('cfg-subtitle').value = state.eventData.subtitle;
+            PhotoBoothBorders.renderOptions('review-border-options', 'guest');
+            PhotoBoothBorders.renderOptions('settings-border-options', 'settings');
+            syncBorderStyleOptions();
             updateHeaderDisplay();
 
         });
+
+        function loadPersistentEventText() {
+            try {
+                const savedText = localStorage.getItem(EVENT_TEXT_STORAGE_KEY);
+                if (!savedText) return;
+
+                const eventText = JSON.parse(savedText);
+                if (!eventText || typeof eventText !== 'object' ||
+                    typeof eventText.title !== 'string' ||
+                    typeof eventText.date !== 'string' ||
+                    typeof eventText.subtitle !== 'string') {
+                    throw new Error('Saved event text has an invalid format.');
+                }
+
+                state.eventData.title = eventText.title;
+                state.eventData.date = eventText.date;
+                state.eventData.subtitle = eventText.subtitle;
+            } catch (error) {
+                console.error('Unable to load saved event text.', error);
+                document.getElementById('settings-status').textContent =
+                    'Could not load saved event text from this device.';
+            }
+        }
+
+        function savePersistentEventText() {
+            const eventText = {
+                title: state.eventData.title,
+                date: state.eventData.date,
+                subtitle: state.eventData.subtitle
+            };
+
+            try {
+                localStorage.setItem(EVENT_TEXT_STORAGE_KEY, JSON.stringify(eventText));
+                return true;
+            } catch (error) {
+                console.error('Unable to save event text on this device.', error);
+                document.getElementById('settings-status').textContent =
+                    'Settings applied, but this browser could not save them for next time.';
+                return false;
+            }
+        }
 
         function updateHeaderDisplay() {
 
@@ -304,51 +366,37 @@ const state = {
             const ctx = state.audioContext;
             if (!ctx || ctx.state !== 'running') return;
 
-            const duration = 0.12;
-            const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * duration), ctx.sampleRate);
-            const samples = buffer.getChannelData(0);
-            for (let i = 0; i < samples.length; i++) {
-                samples[i] = Math.random() * 2 - 1;
-            }
-
-            const noise = ctx.createBufferSource();
-            noise.buffer = buffer;
-
-            const filter = ctx.createBiquadFilter();
-            filter.type = 'highpass';
-            filter.frequency.value = 1400;
-
-            const noiseGain = ctx.createGain();
-            noiseGain.gain.setValueAtTime(0.35, ctx.currentTime);
-            noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-
-            noise.connect(filter);
-            filter.connect(noiseGain);
-            noiseGain.connect(ctx.destination);
-            noise.start();
-            noise.stop(ctx.currentTime + duration);
-
+            const now = ctx.currentTime;
+            const duration = 0.16;
             const click = ctx.createOscillator();
             const clickGain = ctx.createGain();
-            click.type = 'triangle';
-            click.frequency.setValueAtTime(1500, ctx.currentTime);
-            click.frequency.exponentialRampToValueAtTime(450, ctx.currentTime + 0.055);
-            clickGain.gain.setValueAtTime(0.18, ctx.currentTime);
-            clickGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+
+            click.type = 'sine';
+            click.frequency.setValueAtTime(880, now);
+            click.frequency.exponentialRampToValueAtTime(660, now + duration);
+            clickGain.gain.setValueAtTime(0.07, now);
+            clickGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
             click.connect(clickGain);
             clickGain.connect(ctx.destination);
-            click.start();
-            click.stop(ctx.currentTime + 0.06);
+            click.start(now);
+            click.stop(now + duration);
 
         }
 
         async function startCaptureSequence() {
+
+            if (state.captureInProgress) return;
+
+            state.captureInProgress = true;
+            state.captureCancelled = false;
 
             try {
                 await unlockAudio();
             } catch (error) {
                 console.error('Could not enable capture sounds:', error);
             }
+
+            if (state.captureCancelled) return;
 
             state.capturedImages = [];
 
@@ -363,9 +411,13 @@ const state = {
 
             for (let i = 0; i < photoCount; i++) {
 
+                if (state.captureCancelled) return;
+
                 DOM.sequenceIndicator.textContent = `Photo ${i + 1} of ${photoCount}`;
 
                 await runCountdown(state.eventData.countdownSeconds);
+
+                if (state.captureCancelled) return;
 
                 triggerFlash();
 
@@ -377,12 +429,13 @@ const state = {
 
                 if (i < photoCount - 1) {
 
-                    await new Promise(r => setTimeout(r, 1500));
+                    await waitBeforeNextPhoto();
 
                 }
 
             }
 
+            state.captureInProgress = false;
             document.getElementById('shutter-btn').style.display = 'flex';
 
             stopWebcam();
@@ -419,7 +472,8 @@ const state = {
 
                 playBeepSound(600, 0.1);
 
-                const interval = setInterval(() => {
+                state.countdownResolve = resolve;
+                state.countdownInterval = setInterval(() => {
 
                     count--;
 
@@ -431,7 +485,9 @@ const state = {
 
                     } else {
 
-                        clearInterval(interval);
+                        clearInterval(state.countdownInterval);
+                        state.countdownInterval = null;
+                        state.countdownResolve = null;
 
                         DOM.countdownOverlay.classList.add('hidden');
 
@@ -443,6 +499,17 @@ const state = {
 
             });
 
+        }
+
+        function waitBeforeNextPhoto() {
+            return new Promise(resolve => {
+                state.captureDelayResolve = resolve;
+                state.captureDelayTimeout = setTimeout(() => {
+                    state.captureDelayTimeout = null;
+                    state.captureDelayResolve = null;
+                    resolve();
+                }, 1500);
+            });
         }
 
         function triggerFlash() {
@@ -479,6 +546,27 @@ const state = {
 
         function cancelCapture() {
 
+            state.captureCancelled = true;
+            state.captureInProgress = false;
+
+            if (state.countdownInterval !== null) {
+                clearInterval(state.countdownInterval);
+                state.countdownInterval = null;
+            }
+            if (state.countdownResolve) {
+                state.countdownResolve();
+                state.countdownResolve = null;
+            }
+            if (state.captureDelayTimeout !== null) {
+                clearTimeout(state.captureDelayTimeout);
+                state.captureDelayTimeout = null;
+            }
+            if (state.captureDelayResolve) {
+                state.captureDelayResolve();
+                state.captureDelayResolve = null;
+            }
+            DOM.countdownOverlay.classList.add('hidden');
+
             stopWebcam();
 
             document.getElementById('shutter-btn').style.display = 'flex';
@@ -511,15 +599,14 @@ const state = {
 
             ctx.fillRect(0, 0, W, H);
 
-            if (state.selectedTemplate !== 'strip2') {
-                drawDecorativeFrame(ctx, 30, 30, W - 60, H - 60, accentColor, borderStyle);
-            }
-
             const loadedImages = [];
             let loadedCount = 0;
 
             const drawCanvas = (logoImage = null) => {
                 drawPhotosAndOverlay(ctx, W, H, loadedImages, fontColor, accentColor, bgColor, logoImage, borderStyle);
+                if (state.selectedTemplate !== 'strip2') {
+                    PhotoBoothBorders.drawDecorativeFrame(ctx, 30, 30, W - 60, H - 60, accentColor, borderStyle);
+                }
                 if (addToGallery) {
                     saveToRecentGallery(canvas.toDataURL());
                 }
@@ -595,7 +682,7 @@ const state = {
 
                     });
 
-                    drawDecorativeFrame(ctx, stripX, 55, stripWidth, H - 110, accentColor, borderStyle);
+                    PhotoBoothBorders.drawDecorativeFrame(ctx, stripX, 55, stripWidth, H - 110, accentColor, borderStyle);
 
                     const stripCenterX = stripX + stripWidth / 2;
                     if (logoImage) {
@@ -710,142 +797,6 @@ const state = {
             ctx.strokeStyle = accentColor;
             ctx.lineWidth = lineWidth;
             ctx.strokeRect(x, y, width, height);
-        }
-
-        function drawDecorativeFrame(ctx, x, y, width, height, color, style) {
-            ctx.save();
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 3;
-
-            if (style === 'pearl') {
-                ctx.lineCap = "round";
-                ctx.setLineDash([1, 12]);
-                ctx.strokeRect(x + 5, y + 5, width - 10, height - 10);
-                ctx.setLineDash([]);
-                ctx.lineWidth = 1;
-                ctx.strokeRect(x + 16, y + 16, width - 32, height - 32);
-            } else {
-                ctx.strokeRect(x + 5, y + 5, width - 10, height - 10);
-                ctx.lineWidth = 1.5;
-                ctx.strokeRect(x + 15, y + 15, width - 30, height - 30);
-
-                if (style === 'artDeco') {
-                    const cornerSize = 58;
-                    const offsets = [25, 39, 53];
-                    const corners = [
-                        { x: x + 20, y: y + 20, sx: 1, sy: 1 },
-                        { x: x + width - 20, y: y + 20, sx: -1, sy: 1 },
-                        { x: x + 20, y: y + height - 20, sx: 1, sy: -1 },
-                        { x: x + width - 20, y: y + height - 20, sx: -1, sy: -1 }
-                    ];
-                    corners.forEach(corner => {
-                        offsets.forEach(offset => {
-                            ctx.beginPath();
-                            ctx.moveTo(corner.x + corner.sx * offset, corner.y);
-                            ctx.lineTo(corner.x + corner.sx * (offset + cornerSize), corner.y);
-                            ctx.moveTo(corner.x, corner.y + corner.sy * offset);
-                            ctx.lineTo(corner.x, corner.y + corner.sy * (offset + cornerSize));
-                            ctx.stroke();
-                        });
-                    });
-                } else if (style === 'botanical') {
-                    drawBotanicalCorner(ctx, x + 18, y + 18, 1, 1, color);
-                    drawBotanicalCorner(ctx, x + width - 18, y + 18, -1, 1, color);
-                    drawBotanicalCorner(ctx, x + 18, y + height - 18, 1, -1, color);
-                    drawBotanicalCorner(ctx, x + width - 18, y + height - 18, -1, -1, color);
-                } else if (style === 'garden') {
-                    drawGardenCorner(ctx, x + 20, y + 20, 1, 1);
-                    drawGardenCorner(ctx, x + width - 20, y + 20, -1, 1);
-                    drawGardenCorner(ctx, x + 20, y + height - 20, 1, -1);
-                    drawGardenCorner(ctx, x + width - 20, y + height - 20, -1, -1);
-                }
-            }
-
-            ctx.restore();
-        }
-
-        function drawGardenCorner(ctx, x, y, scaleX, scaleY) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.scale(scaleX, scaleY);
-            ctx.lineWidth = 3;
-            ctx.lineCap = 'round';
-
-            ctx.strokeStyle = '#809B85';
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.quadraticCurveTo(34, 9, 66, 66);
-            ctx.moveTo(0, 0);
-            ctx.quadraticCurveTo(9, 36, 66, 66);
-            ctx.stroke();
-
-            const leaves = [
-                [17, 9, -0.7], [29, 17, 0.75], [42, 29, -0.7],
-                [54, 45, 0.75], [10, 19, 0.75], [20, 34, -0.7],
-                [35, 48, 0.75], [48, 59, -0.7]
-            ];
-            leaves.forEach(([leafX, leafY, rotation], index) => {
-                ctx.save();
-                ctx.translate(leafX, leafY);
-                ctx.rotate(rotation);
-                ctx.fillStyle = index % 2 ? '#A9B99A' : '#789984';
-                ctx.beginPath();
-                ctx.ellipse(0, 0, 5, 10, 0, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-            });
-
-            [[37, 24, '#D9A7AF'], [61, 54, '#E3C886']].forEach(([flowerX, flowerY, petalColor]) => {
-                ctx.fillStyle = petalColor;
-                for (let petal = 0; petal < 5; petal++) {
-                    const angle = (Math.PI * 2 * petal) / 5;
-                    ctx.beginPath();
-                    ctx.ellipse(
-                        flowerX + Math.cos(angle) * 6,
-                        flowerY + Math.sin(angle) * 6,
-                        4,
-                        6,
-                        angle,
-                        0,
-                        Math.PI * 2
-                    );
-                    ctx.fill();
-                }
-                ctx.fillStyle = '#E8C86A';
-                ctx.beginPath();
-                ctx.arc(flowerX, flowerY, 3, 0, Math.PI * 2);
-                ctx.fill();
-            });
-
-            ctx.restore();
-        }
-
-        function drawBotanicalCorner(ctx, x, y, scaleX, scaleY, color) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.scale(scaleX, scaleY);
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(74, 0);
-            ctx.moveTo(0, 0);
-            ctx.lineTo(0, 74);
-            ctx.moveTo(5, 5);
-            ctx.quadraticCurveTo(28, 24, 57, 57);
-            ctx.stroke();
-
-            ctx.fillStyle = color;
-            [[18, 16, -0.55], [33, 31, 0.8], [47, 46, -0.55], [16, 24, 0.8], [27, 38, -0.55], [42, 52, 0.8]].forEach(([leafX, leafY, rotation]) => {
-                ctx.save();
-                ctx.translate(leafX, leafY);
-                ctx.rotate(rotation);
-                ctx.beginPath();
-                ctx.ellipse(0, 0, 5, 11, 0, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-            });
-            ctx.restore();
         }
 
         function drawLogoImage(ctx, image, centerX, topY, maxWidth, maxHeight) {
@@ -1064,21 +1015,18 @@ const state = {
         }
 
         function changeBorderStyle(style) {
+            if (!PhotoBoothBorders.hasStyle(style)) {
+                console.error(`Unknown photo border style: ${style}`);
+                return;
+            }
+
             state.borderStyle = style;
             syncBorderStyleOptions();
             renderFinalCanvas();
         }
 
         function syncBorderStyleOptions() {
-            document.querySelectorAll('.border-style-option').forEach(button => {
-                const selected = button.getAttribute('onclick') === `changeBorderStyle('${state.borderStyle}')`;
-                button.setAttribute('aria-pressed', String(selected));
-                button.classList.toggle('border-2', selected);
-                button.classList.toggle('border-gold', selected);
-                button.classList.toggle('bg-warmSand', selected);
-                button.classList.toggle('border', !selected);
-                button.classList.toggle('border-champagne', !selected);
-            });
+            PhotoBoothBorders.syncOptions(state.borderStyle, getOverlayThemeColors().accent);
         }
 
         function handleLogoUpload(event) {
@@ -1359,6 +1307,12 @@ const state = {
             state.eventData.countdownSeconds = parseInt(document.getElementById('cfg-countdown').value);
 
             state.eventData.resetSeconds = parseInt(document.getElementById('cfg-reset').value);
+
+            const eventTextSaved = savePersistentEventText();
+            if (eventTextSaved) {
+                document.getElementById('settings-status').textContent =
+                    'Event name, date, and footer message saved on this device.';
+            }
 
             updateHeaderDisplay();
 
