@@ -33,12 +33,12 @@ The page loads Tailwind CSS, Lucide icons, Canvas Confetti, and Google Fonts fro
 1. Open **Event Settings** and configure the event name, date, footer message, optional logo, print theme, camera, countdown, and automatic reset.
 2. Select a photo layout and allow camera access.
 3. Frame the shot and tap the shutter. Multi-photo layouts capture the photos in sequence.
-4. Review the result. Download it or choose **Print** to open the device's print dialog.
+4. Review the result. Download it, or choose **Print / Share Photo**. On iPad, choose **Print** from the share sheet, then select the Canon SELPHY.
 5. Use the gallery to view or reprint recent captures from the current session.
 
 For iPad use, serve or deploy the app over HTTPS, open it in Safari, and use **Share → Add to Home Screen** to make the booth available as an app.
 
-Printing uses the browser's normal print dialog, with each image sized to a single 4×6-inch postcard page (portrait images use 4×6 orientation). Connect and configure the printer on the device first; for a Canon SELPHY, use the print options available through the operating system or AirPrint where supported.
+On iPad, the print action shares the finished image to the system share sheet so guests can choose **Print** and the Canon SELPHY without Safari's webpage URL/footer. This requires iPadOS file sharing support; browsers without it fall back to the browser print dialog. Every browser print job requests a single 4×6-inch portrait postcard page. Landscape designs are rotated 90° for printing; the in-app preview remains unchanged. Connect and configure the printer on the device first.
 
 ## Project files
 

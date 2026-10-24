@@ -1134,7 +1134,7 @@ const state = {
         }
 
 
-        function printPhoto(dataUrl) {
+        function openBrowserPrintDialog(dataUrl) {
             const printArea = document.getElementById('print-area');
             let pageStyle = document.getElementById('print-page-style');
             if (!pageStyle) {
@@ -1146,13 +1146,12 @@ const state = {
             const image = new Image();
             image.alt = 'Photo Booth Print';
             image.onload = () => {
-                const isPortraitPrint = image.naturalHeight > image.naturalWidth;
-                const pageWidth = isPortraitPrint ? 4 : 6;
-                const pageHeight = isPortraitPrint ? 6 : 4;
+                const isLandscape = image.naturalWidth > image.naturalHeight;
 
-                pageStyle.textContent = `@page { size: ${pageWidth}in ${pageHeight}in; margin: 0; }`;
-                printArea.style.width = `${pageWidth}in`;
-                printArea.style.height = `${pageHeight}in`;
+                pageStyle.textContent = '@page { size: 4in 6in; margin: 0; }';
+                printArea.style.width = '4in';
+                printArea.style.height = '6in';
+                image.classList.toggle('print-landscape', isLandscape);
                 printArea.replaceChildren(image);
 
                 window.print();
@@ -1162,6 +1161,45 @@ const state = {
             };
             image.src = dataUrl;
 
+        }
+
+        function photoDataUrlToFile(dataUrl) {
+            const match = /^data:(image\/(?:png|jpeg));base64,(.+)$/.exec(dataUrl);
+            if (!match) {
+                throw new Error('The photo data is not a supported PNG or JPEG image.');
+            }
+
+            const binary = atob(match[2]);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+
+            const extension = match[1] === 'image/png' ? 'png' : 'jpg';
+            return new File([bytes], `photo-booth.${extension}`, { type: match[1] });
+        }
+
+        async function printPhoto(dataUrl) {
+            if (typeof File !== 'undefined' && navigator.share && navigator.canShare) {
+                try {
+                    const file = photoDataUrlToFile(dataUrl);
+                    if (navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            files: [file],
+                            title: 'Photo Booth'
+                        });
+                        return;
+                    }
+                } catch (error) {
+                    if (error instanceof DOMException && error.name === 'AbortError') {
+                        return;
+                    }
+                    console.error('Could not share the photo:', error);
+                    alert('Could not open the iPad share sheet. Opening the browser print dialog instead.');
+                }
+            }
+
+            openBrowserPrintDialog(dataUrl);
         }
 
         function triggerPrint() {
