@@ -37,7 +37,7 @@ The page loads Tailwind CSS, Lucide icons, Canvas Confetti, and Google Fonts fro
 
 For iPad use, serve or deploy the app over HTTPS, open it in Safari, and use **Share → Add to Home Screen** to make the booth available as an app.
 
-Printing uses the browser's normal print dialog. Connect and configure the printer on the device first; for a Canon SELPHY, use the print options available through the operating system or AirPrint where supported.
+Printing uses the browser's normal print dialog, with each image sized to a single 4×6-inch postcard page (portrait images use 4×6 orientation). Connect and configure the printer on the device first; for a Canon SELPHY, use the print options available through the operating system or AirPrint where supported.
 
 ## Project files
 

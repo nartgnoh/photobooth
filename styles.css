@@ -111,15 +111,15 @@
 
             #print-area {
 
-                position: absolute;
+                position: fixed;
 
                 left: 0;
 
                 top: 0;
 
-                width: 100vw;
+                width: 6in;
 
-                height: 100vh;
+                height: 4in;
 
                 display: flex;
 
@@ -129,13 +129,15 @@
 
                 background: transparent;
 
+                overflow: hidden;
+
             }
 
             #print-area img {
 
-                max-width: 100%;
+                width: 100%;
 
-                max-height: 100%;
+                height: 100%;
 
                 object-fit: contain;
 

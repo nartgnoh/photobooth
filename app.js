@@ -1049,8 +1049,7 @@ const state = {
         }
 
 
-        function triggerPrint() {
-            const dataUrl = DOM.canvas.toDataURL('image/png');
+        function printPhoto(dataUrl) {
             const printArea = document.getElementById('print-area');
             let pageStyle = document.getElementById('print-page-style');
             if (!pageStyle) {
@@ -1058,16 +1057,30 @@ const state = {
                 pageStyle.id = 'print-page-style';
                 document.head.appendChild(pageStyle);
             }
-            const isPortraitPrint = state.selectedTemplate === 'strip2' || state.selectedTemplate === 'portrait4';
-            pageStyle.textContent = `@page { size: ${isPortraitPrint ? '4in 6in' : '6in 4in'}; margin: 0; }`;
-            printArea.innerHTML = `<img src="${dataUrl}" alt="Photo Strip Print">`;
 
-            setTimeout(() => {
+            const image = new Image();
+            image.alt = 'Photo Booth Print';
+            image.onload = () => {
+                const isPortraitPrint = image.naturalHeight > image.naturalWidth;
+                const pageWidth = isPortraitPrint ? 4 : 6;
+                const pageHeight = isPortraitPrint ? 6 : 4;
+
+                pageStyle.textContent = `@page { size: ${pageWidth}in ${pageHeight}in; margin: 0; }`;
+                printArea.style.width = `${pageWidth}in`;
+                printArea.style.height = `${pageHeight}in`;
+                printArea.replaceChildren(image);
 
                 window.print();
+            };
+            image.onerror = () => {
+                console.error('Unable to load the photo for printing.');
+            };
+            image.src = dataUrl;
 
-            }, 250);
+        }
 
+        function triggerPrint() {
+            printPhoto(DOM.canvas.toDataURL('image/png'));
         }
 
         function downloadPhoto() {
@@ -1149,15 +1162,7 @@ const state = {
 
         function reprintGalleryImage(imgData) {
 
-            const printArea = document.getElementById('print-area');
-
-            printArea.innerHTML = `<img src="${imgData}" alt="Photo Strip Print">`;
-
-            setTimeout(() => {
-
-                window.print();
-
-            }, 200);
+            printPhoto(imgData);
 
         }
 
