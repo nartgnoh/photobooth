@@ -7,8 +7,8 @@ A browser-based photo booth for events. Use a phone, tablet, or computer camera 
 - Four photo layouts: single landscape, two-photo strip, four-photo grid, and four-photo portrait strip.
 - Live camera preview, camera selection, countdown, and multi-shot capture.
 - Countdown beeps and a camera-style shutter sound for each photo.
-- Event title, date, message, and optional logo on photo designs.
-- Built-in frame themes and customizable colors.
+- Event title, calendar-selected date, message, individually selectable fonts for each text field (including Courier New, Times New Roman, Cooper Black, New Century Schoolbook, Optima, and Helvetica), and optional logo on photo designs.
+- Built-in frame themes that also recolor the booth interface, customizable colors, and selectable print backgrounds, including a custom image from the device, with translucent, theme-colored caption frames.
 - Download photos, print from the browser, and revisit recent captures in the session gallery.
 - Installable web app support for using the booth from a Home Screen.
 
@@ -30,7 +30,7 @@ The page loads Tailwind CSS, Lucide icons, Canvas Confetti, and Google Fonts fro
 
 ## Use at an event
 
-1. Open **Event Settings** and configure the event name, date, footer message, optional logo, print theme, camera, countdown, and automatic reset. The event name, date, and footer message are saved in that browser on that device and remain after a refresh or guest reset.
+1. Open **Event Settings** and configure the event name, calendar date, footer message, a separate font for each text field, optional logo, print background (theme color, Water Lilies, or an image file from the device), print theme, camera, countdown, and automatic reset. Event information and font choices are saved in that browser on that device and remain after a refresh or guest reset.
 2. Select a photo layout and allow camera access.
 3. Frame the shot and tap the shutter. Multi-photo layouts capture the photos in sequence.
 4. Review the result. Download it, or choose **Print / Share Photo**. On iPad, choose **Print** from the share sheet, then select the Canon SELPHY.
@@ -42,8 +42,7 @@ On iPad, the print action shares the finished image to the system share sheet so
 
 ## Project files
 
-- `index.html` — application interface and web app metadata.
-- `app.js` — camera, capture flow, photo composition, gallery, settings, and printing logic.
-- `border-frames.js` and `border-frames.css` — decorative frame drawing, available frame options, and their selector previews.
-- `styles.css` and `tailwind.config.js` — kiosk, layout, print, and shared theme styles.
-- `manifest.json` and `app-icon.*` — installable app metadata and icons.
+- `index.html`, `manifest.json`, and `README.md` — app entry point, installable app metadata, and project documentation.
+- `js/` — camera, capture flow, photo composition, gallery, settings, printing logic, and Tailwind configuration.
+- `css/` — kiosk, layout, print, shared theme styles, and border selector previews.
+- `assets/` — app icons and the optional Water Lilies print-design background.

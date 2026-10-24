@@ -1,7 +1,7 @@
 (function () {
     const styles = [
-        { id: 'minimal', label: 'Modern Minimal' },
-        { id: 'classic', label: 'Classic Double' },
+        { id: 'classic', label: 'Double Lines' },
+        { id: 'minimal', label: 'Single Line' },
         { id: 'pearl', label: 'Dots' },
         { id: 'dashed', label: 'Dashes' },
         { id: 'artDeco', label: 'Art Deco' },

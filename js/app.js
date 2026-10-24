@@ -1,5 +1,18 @@
 const EVENT_TEXT_STORAGE_KEY = 'photobooth-event-text-v1';
 
+const EVENT_FONT_OPTIONS = [
+    { value: 'Alex Brush', label: 'Alex Brush' },
+    { value: 'Cinzel', label: 'Cinzel' },
+    { value: 'Cooper Black', label: 'Cooper Black' },
+    { value: 'Courier New', label: 'Courier New' },
+    { value: 'Helvetica', label: 'Helvetica' },
+    { value: 'Montserrat', label: 'Montserrat' },
+    { value: 'New Century Schoolbook', label: 'New Century Schoolbook' },
+    { value: 'Optima', label: 'Optima' },
+    { value: 'Playfair Display', label: 'Playfair Display' },
+    { value: 'Times New Roman', label: 'Times New Roman' }
+];
+
 const state = {
 
             currentScreen: 'mode',
@@ -7,6 +20,12 @@ const state = {
             selectedTemplate: 'single',
 
             overlayTheme: 'gold',
+
+            printBackground: 'theme',
+
+            customPrintBackgroundImage: null,
+
+            customPrintBackgroundName: '',
 
             customThemeColors: {
                 background: '#FDFBF7',
@@ -21,8 +40,13 @@ const state = {
             eventData: {
 
                 title: "DENNIS & HONG'S WEDDING",
-                date: "MAY 20, 2028",
+                date: "2028-05-20",
                 subtitle: "Thank you for joining us!",
+                fonts: {
+                    title: 'Playfair Display',
+                    date: 'Cinzel',
+                    subtitle: 'Montserrat'
+                },
 
                 countdownSeconds: 3,
 
@@ -62,6 +86,8 @@ const state = {
 
         const DOM = {
 
+            main: document.querySelector('main'),
+
             screens: {
 
                 mode: document.getElementById('screen-mode'),
@@ -87,6 +113,10 @@ const state = {
             logoStatus: document.getElementById('logo-status'),
 
             canvas: document.getElementById('output-canvas'),
+
+            printBackgroundImage: document.getElementById('water-lilies-background-image'),
+
+            printBackgroundFileInput: document.getElementById('cfg-print-background-file'),
 
             countdownOverlay: document.getElementById('countdown-overlay'),
 
@@ -114,8 +144,11 @@ const state = {
 
             loadPersistentEventText();
             document.getElementById('cfg-title').value = state.eventData.title;
-            document.getElementById('cfg-date').value = state.eventData.date;
+            syncEventDateInputs();
             document.getElementById('cfg-subtitle').value = state.eventData.subtitle;
+            syncEventFontInputs();
+            initializePrintBackground();
+            applyAppTheme(getOverlayThemeColors());
             PhotoBoothBorders.renderOptions('review-border-options', 'guest');
             PhotoBoothBorders.renderOptions('settings-border-options', 'settings');
             syncBorderStyleOptions();
@@ -137,8 +170,22 @@ const state = {
                 }
 
                 state.eventData.title = eventText.title;
-                state.eventData.date = eventText.date;
+                const calendarDate = toCalendarDate(eventText.date);
+                if (calendarDate === null) {
+                    document.getElementById('settings-status').textContent =
+                        'The saved event date could not be opened in the calendar. Please choose it again.';
+                    state.eventData.date = '';
+                } else {
+                    state.eventData.date = calendarDate;
+                }
                 state.eventData.subtitle = eventText.subtitle;
+                if (eventText.fonts && typeof eventText.fonts === 'object') {
+                    state.eventData.fonts = {
+                        title: getSavedFont(eventText.fonts.title, 'Playfair Display'),
+                        date: getSavedFont(eventText.fonts.date, 'Cinzel'),
+                        subtitle: getSavedFont(eventText.fonts.subtitle, 'Montserrat')
+                    };
+                }
             } catch (error) {
                 console.error('Unable to load saved event text.', error);
                 document.getElementById('settings-status').textContent =
@@ -150,7 +197,8 @@ const state = {
             const eventText = {
                 title: state.eventData.title,
                 date: state.eventData.date,
-                subtitle: state.eventData.subtitle
+                subtitle: state.eventData.subtitle,
+                fonts: state.eventData.fonts
             };
 
             try {
@@ -167,7 +215,9 @@ const state = {
         function updateHeaderDisplay() {
 
             DOM.headerTitle.textContent = state.eventData.title;
-            DOM.headerDate.textContent = state.eventData.date;
+            DOM.headerTitle.style.fontFamily = `'${state.eventData.fonts.title}', serif`;
+            DOM.headerDate.textContent = formatEventDate(state.eventData.date);
+            DOM.headerDate.style.fontFamily = `'${state.eventData.fonts.date}', serif`;
             DOM.headerDate.classList.toggle('hidden', !state.eventData.date);
 
         }
@@ -175,6 +225,7 @@ const state = {
         function switchScreen(screenName) {
 
             state.currentScreen = screenName;
+            DOM.main.classList.toggle('review-screen-active', screenName === 'review');
 
             Object.keys(DOM.screens).forEach(key => {
 
@@ -454,7 +505,7 @@ const state = {
 
                 origin: { y: 0.6 },
 
-                colors: ['#D4AF37', '#E6D7C3', '#8A9A86']
+                colors: ['#D4AF37', '#E6D7C3', '#ADC2A8']
 
             });
 
@@ -599,6 +650,16 @@ const state = {
 
             ctx.fillRect(0, 0, W, H);
 
+            if (state.printBackground === 'water-lilies' || state.printBackground === 'custom') {
+                ctx.save();
+                ctx.globalAlpha = 0.86;
+                const backgroundImage = state.printBackground === 'custom'
+                    ? state.customPrintBackgroundImage
+                    : DOM.printBackgroundImage;
+                drawCroppedImage(ctx, backgroundImage, 0, 0, W, H);
+                ctx.restore();
+            }
+
             const loadedImages = [];
             let loadedCount = 0;
 
@@ -647,7 +708,7 @@ const state = {
         function drawPhotosAndOverlay(ctx, W, H, images, fontColor, accentColor, bgColor, logoImage = null, borderStyle = state.borderStyle) {
             const template = state.selectedTemplate;
             if (template === 'single') {
-                drawPhotoFrame(ctx, images[0], 150, 100, 1500, 845, accentColor, 7);
+                drawPhotoFrame(ctx, images[0], 220, 85, 1360, 765, accentColor, 7);
                 drawSingleEventCaption(ctx, fontColor, accentColor, W);
                 return;
             }
@@ -686,41 +747,9 @@ const state = {
 
                     const stripCenterX = stripX + stripWidth / 2;
                     if (logoImage) {
-                        drawLogoImage(ctx, logoImage, stripCenterX, H - 370, 110, 50);
+                        drawLogoImage(ctx, logoImage, stripCenterX, H - 405, 110, 50);
                     }
-                    const footerLineY = H - 275;
-
-                    ctx.beginPath();
-
-                    ctx.moveTo(stripX + 70, footerLineY);
-
-                    ctx.lineTo(stripX + stripWidth - 70, footerLineY);
-
-                    ctx.strokeStyle = accentColor;
-
-                    ctx.lineWidth = 2;
-
-                    ctx.stroke();
-
-                    ctx.textAlign = "center";
-
-                    ctx.fillStyle = fontColor;
-
-                    ctx.font = "600 30px 'Playfair Display', serif";
-
-                    ctx.fillText(state.eventData.title, stripCenterX, H - 235, stripWidth - 30);
-
-                    ctx.fillStyle = accentColor;
-
-                    ctx.font = "500 20px 'Cinzel', serif";
-
-                    ctx.fillText(state.eventData.date, stripCenterX, H - 200, stripWidth - 30);
-
-                    ctx.fillStyle = "#888888";
-
-                    ctx.font = "300 18px 'Montserrat', sans-serif";
-
-                    ctx.fillText(state.eventData.subtitle, stripCenterX, H - 170, stripWidth - 30);
+                    drawStripEventCaption(ctx, stripX, stripWidth, H, fontColor, accentColor, bgColor);
 
                 });
 
@@ -742,10 +771,6 @@ const state = {
 
                 ctx.restore();
 
-                ctx.fillStyle = bgColor;
-
-                ctx.fillRect(W / 2 - 34, 29, 68, 34);
-
                 ctx.fillStyle = accentColor;
 
                 ctx.textAlign = "center";
@@ -754,23 +779,26 @@ const state = {
 
                 ctx.fillText("CUT", W / 2, 52);
 
-                ctx.fillStyle = bgColor;
-                ctx.fillRect(W / 2 - 34, H - 63, 68, 34);
-                ctx.fillStyle = accentColor;
                 ctx.fillText("CUT", W / 2, H - 40);
 
                 return;
             }
 
             if (template === 'grid4') {
-                drawPhotoFrame(ctx, images[0], 95, 105, 900, 555, accentColor, 6);
-                drawEventDetails(ctx, fontColor, accentColor, 1010, 145, 650, 465, 53, logoImage);
+                const featuredPhotoX = 95;
+                const featuredPhotoWidth = 900;
+                const detailsWidth = 650;
+                const detailsX = (featuredPhotoX + featuredPhotoWidth + W - 30 - detailsWidth) / 2;
+                drawPhotoFrame(ctx, images[0], featuredPhotoX, 105, featuredPhotoWidth, 555, accentColor, 6);
+                drawEventDetails(ctx, fontColor, accentColor, detailsX, 145, detailsWidth, 465, 53, logoImage);
 
                 const photoY = 760;
                 const photoWidth = 500;
                 const photoHeight = 320;
+                const photoGap = (W - 3 * photoWidth) / 4;
                 [1, 2, 3].forEach((imageIndex, index) => {
-                    drawPhotoFrame(ctx, images[imageIndex], 105 + index * 565, photoY, photoWidth, photoHeight, accentColor, 6);
+                    const photoX = photoGap + index * (photoWidth + photoGap);
+                    drawPhotoFrame(ctx, images[imageIndex], photoX, photoY, photoWidth, photoHeight, accentColor, 6);
                 });
             }
 
@@ -792,6 +820,85 @@ const state = {
             }
         }
 
+        function drawStripEventCaption(ctx, stripX, stripWidth, canvasHeight, fontColor, accentColor, backgroundColor) {
+            const plaqueY = canvasHeight - 340;
+            const plaqueHeight = 240;
+            const centerX = stripX + stripWidth / 2;
+            const textWidth = stripWidth - 112;
+            const lines = [];
+
+            ctx.save();
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            lines.push({
+                text: "CELEBRATING",
+                color: accentColor,
+                font: `500 20px '${state.eventData.fonts.date}', serif`,
+                height: 28
+            });
+
+            ctx.font = `600 32px '${state.eventData.fonts.title}', serif`;
+            const titleWords = state.eventData.title.split(/\s+/);
+            let titleLine = "";
+            titleWords.forEach(word => {
+                const candidate = titleLine ? `${titleLine} ${word}` : word;
+                if (titleLine && ctx.measureText(candidate).width > textWidth) {
+                    lines.push({ text: titleLine, color: fontColor, font: ctx.font, height: 40 });
+                    titleLine = word;
+                } else {
+                    titleLine = candidate;
+                }
+            });
+            if (titleLine) {
+                lines.push({ text: titleLine, color: fontColor, font: ctx.font, height: 40 });
+            }
+
+            if (state.eventData.date) {
+                lines.push({
+                    text: formatEventDate(state.eventData.date),
+                    color: accentColor,
+                    font: `500 22px '${state.eventData.fonts.date}', serif`,
+                    height: 30
+                });
+            }
+
+            if (state.eventData.subtitle) {
+                lines.push({
+                    text: state.eventData.subtitle,
+                    color: fontColor,
+                    font: `400 18px '${state.eventData.fonts.subtitle}', sans-serif`,
+                    height: 26
+                });
+            }
+
+            ctx.restore();
+
+            drawThemedTextPlaque(
+                ctx,
+                stripX + 24,
+                plaqueY,
+                stripWidth - 48,
+                plaqueHeight,
+                accentColor,
+                backgroundColor,
+                0.67
+            );
+
+            ctx.save();
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            const lineGap = 8;
+            const contentHeight = lines.reduce((total, line) => total + line.height, 0) + lineGap * Math.max(0, lines.length - 1);
+            let lineY = plaqueY + (plaqueHeight - contentHeight) / 2;
+            lines.forEach(line => {
+                ctx.fillStyle = line.color;
+                ctx.font = line.font;
+                ctx.fillText(line.text, centerX, lineY + line.height / 2, textWidth);
+                lineY += line.height + lineGap;
+            });
+            ctx.restore();
+        }
+
         function drawPhotoFrame(ctx, image, x, y, width, height, accentColor, lineWidth) {
             drawCroppedImage(ctx, image, x, y, width, height);
             ctx.strokeStyle = accentColor;
@@ -809,69 +916,149 @@ const state = {
         function drawSingleEventCaption(ctx, fontColor, accentColor, canvasWidth) {
             const centerX = canvasWidth / 2;
             const textWidth = canvasWidth - 240;
-            const titleY = 1010;
+            const plaqueY = 882;
+            const plaqueHeight = 250;
+            const lines = [{
+                text: "CELEBRATING",
+                color: accentColor,
+                font: `500 23px '${state.eventData.fonts.date}', serif`,
+                height: 30
+            }, {
+                text: state.eventData.title,
+                color: fontColor,
+                font: `600 52px '${state.eventData.fonts.title}', serif`,
+                height: 62
+            }];
+
+            if (state.eventData.date) {
+                lines.push({
+                    text: formatEventDate(state.eventData.date),
+                    color: accentColor,
+                    font: `600 30px '${state.eventData.fonts.date}', serif`,
+                    height: 39
+                });
+            }
+
+            if (state.eventData.subtitle) {
+                lines.push({
+                    text: state.eventData.subtitle,
+                    color: fontColor,
+                    font: `400 25px '${state.eventData.fonts.subtitle}', sans-serif`,
+                    height: 32
+                });
+            }
+
+            drawThemedTextPlaque(ctx, 150, plaqueY, canvasWidth - 300, plaqueHeight, accentColor, getOverlayThemeColors().background, 0.82);
 
             ctx.save();
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillStyle = fontColor;
-            ctx.font = "600 42px 'Playfair Display', serif";
-            ctx.fillText(state.eventData.title, centerX, titleY, textWidth);
-
-            if (state.eventData.date) {
-                ctx.fillStyle = accentColor;
-                ctx.font = "500 22px 'Cinzel', serif";
-                ctx.fillText(state.eventData.date, centerX, titleY + 43, textWidth);
-            }
-
-            if (state.eventData.subtitle) {
-                ctx.fillStyle = "#888888";
-                ctx.font = "300 18px 'Montserrat', sans-serif";
-                ctx.fillText(state.eventData.subtitle, centerX, titleY + (state.eventData.date ? 76 : 43), textWidth);
-            }
+            const lineGap = 5;
+            const contentHeight = lines.reduce((total, line) => total + line.height, 0) + lineGap * (lines.length - 1);
+            let lineY = plaqueY + (plaqueHeight - contentHeight) / 2;
+            lines.forEach(line => {
+                ctx.fillStyle = line.color;
+                ctx.font = line.font;
+                ctx.fillText(line.text, centerX, lineY + line.height / 2, textWidth);
+                lineY += line.height + lineGap;
+            });
 
             ctx.restore();
         }
 
         function drawPortraitEventCaption(ctx, canvasWidth, fontColor, accentColor, logoImage) {
             const centerX = canvasWidth / 2;
-            const titleY = logoImage ? 1405 : 1375;
+            const plaqueY = logoImage ? 1280 : 1225;
+            const plaqueHeight = 475;
+            const maxTextWidth = canvasWidth - 300;
+            const lines = [];
 
             if (logoImage) {
-                drawLogoImage(ctx, logoImage, centerX, 1270, 190, 90);
+                drawLogoImage(ctx, logoImage, centerX, 1180, 190, 90);
             }
+
+            drawThemedTextPlaque(ctx, 110, plaqueY, canvasWidth - 220, plaqueHeight, accentColor, getOverlayThemeColors().background);
 
             ctx.save();
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillStyle = accentColor;
-            ctx.font = "500 25px 'Cinzel', serif";
-            ctx.fillText("CELEBRATING", centerX, titleY - 48, canvasWidth - 240);
 
-            ctx.fillStyle = fontColor;
-            ctx.font = "600 58px 'Playfair Display', serif";
-            ctx.fillText(state.eventData.title, centerX, titleY + 18, canvasWidth - 180);
+            lines.push({
+                text: "CELEBRATING",
+                font: `500 23px '${state.eventData.fonts.date}', serif`,
+                color: accentColor,
+                height: 30
+            });
+
+            ctx.font = `600 60px '${state.eventData.fonts.title}', serif`;
+            wrapCaptionText(ctx, state.eventData.title, maxTextWidth, 2).forEach(text => {
+                lines.push({ text, font: ctx.font, color: fontColor, height: 70 });
+            });
 
             if (state.eventData.date) {
-                ctx.fillStyle = accentColor;
-                ctx.font = "500 25px 'Cinzel', serif";
-                ctx.fillText(state.eventData.date, centerX, titleY + 78, canvasWidth - 240);
+                lines.push({
+                    text: formatEventDate(state.eventData.date),
+                    font: `500 40px '${state.eventData.fonts.date}', serif`,
+                    color: accentColor,
+                    height: 50
+                });
             }
 
             if (state.eventData.subtitle) {
-                ctx.fillStyle = "#888888";
-                ctx.font = "300 21px 'Montserrat', sans-serif";
-                ctx.fillText(state.eventData.subtitle, centerX, titleY + (state.eventData.date ? 120 : 78), canvasWidth - 240);
+                ctx.font = `300 34px '${state.eventData.fonts.subtitle}', sans-serif`;
+                wrapCaptionText(ctx, state.eventData.subtitle, maxTextWidth, 2).forEach(text => {
+                    lines.push({ text, font: ctx.font, color: "#888888", height: 44 });
+                });
             }
+
+            const lineGap = 10;
+            const contentHeight = lines.reduce((total, line) => total + line.height, 0) +
+                lineGap * Math.max(0, lines.length - 1);
+            let lineY = plaqueY + (plaqueHeight - contentHeight) / 2;
+            lines.forEach(line => {
+                ctx.fillStyle = line.color;
+                ctx.font = line.font;
+                ctx.fillText(line.text, centerX, lineY + line.height / 2, maxTextWidth);
+                lineY += line.height + lineGap;
+            });
             ctx.restore();
+        }
+
+        function wrapCaptionText(ctx, text, maxWidth, maxLines) {
+            const words = text.trim().split(/\s+/).filter(Boolean);
+            const lines = [];
+            let line = "";
+
+            words.forEach(word => {
+                const candidate = line ? `${line} ${word}` : word;
+                if (line && ctx.measureText(candidate).width > maxWidth) {
+                    lines.push(line);
+                    line = word;
+                } else {
+                    line = candidate;
+                }
+            });
+            if (line) lines.push(line);
+
+            if (lines.length > maxLines) {
+                lines.length = maxLines;
+                let lastLine = lines[maxLines - 1];
+                while (lastLine && ctx.measureText(`${lastLine}…`).width > maxWidth) {
+                    lastLine = lastLine.slice(0, -1).trimEnd();
+                }
+                lines[maxLines - 1] = `${lastLine}…`;
+            }
+
+            return lines;
         }
 
         function drawEventDetails(ctx, fontColor, accentColor, x, y, width, height, titleSize, logoImage = null) {
             const centerX = x + width / 2;
-            const centerY = y + height / 2;
             const title = state.eventData.title;
             const maxLineWidth = width - 40;
             const logoHeight = logoImage ? 82 : 0;
+
+            drawThemedTextPlaque(ctx, x + 8, y + 8, width - 16, height - 16, accentColor, getOverlayThemeColors().background);
 
             ctx.save();
             ctx.textAlign = "center";
@@ -879,45 +1066,57 @@ const state = {
             if (logoImage) {
                 drawLogoImage(ctx, logoImage, centerX, y + 18, 170, 82);
             }
-            ctx.fillStyle = accentColor;
-            ctx.font = "500 23px 'Cinzel', serif";
-            const celebrationY = y + 40 + logoHeight;
-            ctx.fillText("CELEBRATING", centerX, celebrationY, maxLineWidth);
+            const lines = [{
+                text: "CELEBRATING",
+                color: accentColor,
+                font: `500 23px '${state.eventData.fonts.date}', serif`,
+                height: 30
+            }];
 
-            ctx.fillStyle = fontColor;
-            ctx.font = `600 ${titleSize}px 'Playfair Display', serif`;
-            const words = title.split(/\s+/);
-            const lines = [];
+            ctx.font = `600 ${titleSize}px '${state.eventData.fonts.title}', serif`;
+            const titleFont = ctx.font;
+            const words = title.trim().split(/\s+/).filter(Boolean);
             let line = "";
             for (const word of words) {
                 const candidate = line ? `${line} ${word}` : word;
                 if (line && ctx.measureText(candidate).width > maxLineWidth) {
-                    lines.push(line);
+                    lines.push({ text: line, color: fontColor, font: titleFont, height: titleSize * 1.12 });
                     line = word;
                 } else {
                     line = candidate;
                 }
             }
-            if (line) lines.push(line);
-            const lineHeight = titleSize * 1.12;
-            const titleBlockCenterY = (celebrationY + 50 + y + height - 110) / 2;
-            const titleStartY = titleBlockCenterY - ((lines.length - 1) * lineHeight) / 2;
-            lines.forEach((titleLine, index) => {
-                ctx.fillText(titleLine, centerX, titleStartY + index * lineHeight, maxLineWidth);
-            });
+            if (line) lines.push({ text: line, color: fontColor, font: titleFont, height: titleSize * 1.12 });
 
-            let detailY = Math.min(y + height - 90, titleStartY + lines.length * lineHeight + 22);
             if (state.eventData.date) {
-                ctx.fillStyle = accentColor;
-                ctx.font = "500 25px 'Cinzel', serif";
-                ctx.fillText(state.eventData.date, centerX, detailY, maxLineWidth);
-                detailY += 38;
+                lines.push({
+                    text: formatEventDate(state.eventData.date),
+                    color: accentColor,
+                    font: `500 25px '${state.eventData.fonts.date}', serif`,
+                    height: 34
+                });
             }
             if (state.eventData.subtitle) {
-                ctx.fillStyle = "#888888";
-                ctx.font = "300 20px 'Montserrat', sans-serif";
-                ctx.fillText(state.eventData.subtitle, centerX, detailY, maxLineWidth);
+                lines.push({
+                    text: state.eventData.subtitle,
+                    color: "#888888",
+                    font: `300 20px '${state.eventData.fonts.subtitle}', sans-serif`,
+                    height: 28
+                });
             }
+
+            const lineGap = 12;
+            const contentHeight = lines.reduce((total, item) => total + item.height, 0) +
+                lineGap * (lines.length - 1);
+            const preferredTop = y + (logoImage ? logoHeight + 30 : 24);
+            const centeredTop = y + (height - contentHeight) / 2;
+            let lineY = Math.max(preferredTop, centeredTop);
+            lines.forEach(item => {
+                ctx.fillStyle = item.color;
+                ctx.font = item.font;
+                ctx.fillText(item.text, centerX, lineY + item.height / 2, maxLineWidth);
+                lineY += item.height + lineGap;
+            });
 
             ctx.strokeStyle = accentColor;
             ctx.lineWidth = 2;
@@ -928,33 +1127,173 @@ const state = {
             ctx.restore();
         }
 
+        function drawThemedTextPlaque(ctx, x, y, width, height, accentColor, backgroundColor, fillAlpha = 0.82) {
+            if (state.printBackground === 'theme') return;
+
+            const inset = 8;
+            const radius = 18;
+            const left = x + inset;
+            const top = y + inset;
+            const right = x + width - inset;
+            const bottom = y + height - inset;
+            ctx.save();
+            ctx.fillStyle = colorWithAlpha(backgroundColor, fillAlpha);
+            ctx.strokeStyle = accentColor;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(left + radius, top);
+            ctx.lineTo(right - radius, top);
+            ctx.quadraticCurveTo(right, top, right, top + radius);
+            ctx.lineTo(right, bottom - radius);
+            ctx.quadraticCurveTo(right, bottom, right - radius, bottom);
+            ctx.lineTo(left + radius, bottom);
+            ctx.quadraticCurveTo(left, bottom, left, bottom - radius);
+            ctx.lineTo(left, top + radius);
+            ctx.quadraticCurveTo(left, top, left + radius, top);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.strokeStyle = colorWithAlpha(accentColor, 0.72);
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(left + 22, top + 10);
+            ctx.lineTo(right - 22, top + 10);
+            ctx.moveTo(left + 22, bottom - 10);
+            ctx.lineTo(right - 22, bottom - 10);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function colorWithAlpha(color, alpha) {
+            const match = /^#([0-9a-f]{6})$/i.exec(color);
+            if (!match) {
+                console.error(`Unsupported theme color for text plaque: ${color}`);
+                return `rgba(255, 255, 255, ${alpha})`;
+            }
+
+            const value = match[1];
+            const red = parseInt(value.slice(0, 2), 16);
+            const green = parseInt(value.slice(2, 4), 16);
+            const blue = parseInt(value.slice(4, 6), 16);
+            return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+        }
+
+        function toCalendarDate(value) {
+            if (!value) return '';
+            if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                const [year, month, day] = value.split('-').map(Number);
+                const date = new Date(year, month - 1, day);
+                return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+                    ? value
+                    : null;
+            }
+
+            const legacyDate = /^([A-Z]+)\s+(\d{1,2}),?\s+(\d{4})$/i.exec(value.trim());
+            if (!legacyDate) return null;
+
+            const months = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+            const monthIndex = months.findIndex(month =>
+                month === legacyDate[1].toUpperCase() ||
+                month.startsWith(legacyDate[1].toUpperCase())
+            );
+            if (monthIndex < 0) return null;
+
+            const year = Number(legacyDate[3]);
+            const day = Number(legacyDate[2]);
+            const date = new Date(year, monthIndex, day);
+            if (date.getFullYear() !== year || date.getMonth() !== monthIndex || date.getDate() !== day) {
+                return null;
+            }
+
+            return `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        }
+
+        function formatEventDate(value) {
+            const calendarDate = toCalendarDate(value);
+            if (!calendarDate) return value;
+
+            const [year, month, day] = calendarDate.split('-').map(Number);
+            return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+        }
+
+        function getSavedFont(value, fallback) {
+            return EVENT_FONT_OPTIONS.some(option => option.value === value) ? value : fallback;
+        }
+
+        function syncEventFontInputs() {
+            document.getElementById('cfg-title-font').value = state.eventData.fonts.title;
+            document.getElementById('cfg-date-font').value = state.eventData.fonts.date;
+            document.getElementById('cfg-subtitle-font').value = state.eventData.fonts.subtitle;
+        }
+
+        function syncEventDateInputs() {
+            const calendarDate = toCalendarDate(state.eventData.date) || '';
+            document.getElementById('cfg-date-picker').value = calendarDate;
+            document.getElementById('cfg-date-display').value = formatEventDate(calendarDate);
+        }
+
+        function updateEventDate(value) {
+            const calendarDate = toCalendarDate(value);
+            if (calendarDate === null) {
+                console.error(`Invalid event date selected: ${value}`);
+                document.getElementById('settings-status').textContent =
+                    'That date is invalid. Please choose a valid date from the calendar.';
+                syncEventDateInputs();
+                return;
+            }
+
+            state.eventData.date = calendarDate;
+            syncEventDateInputs();
+            updateHeaderDisplay();
+            if (state.currentScreen === 'review') {
+                renderFinalCanvas();
+            }
+        }
+
+        function updateEventFont(field, font) {
+            if (!['title', 'date', 'subtitle'].includes(field) ||
+                !EVENT_FONT_OPTIONS.some(option => option.value === font)) {
+                console.error(`Invalid event font selection: ${field} / ${font}`);
+                return;
+            }
+
+            state.eventData.fonts[field] = font;
+            if (state.currentScreen === 'review') {
+                renderFinalCanvas();
+            }
+        }
+
         function drawCroppedImage(ctx, img, x, y, width, height) {
 
             const aspectTarget = width / height;
 
-            const aspectImg = img.width / img.height;
+            const sourceWidth = img.naturalWidth || img.width;
+            const sourceHeight = img.naturalHeight || img.height;
+            const aspectImg = sourceWidth / sourceHeight;
 
             let sx, sy, sWidth, sHeight;
 
             if (aspectImg > aspectTarget) {
 
-                sHeight = img.height;
+                sHeight = sourceHeight;
 
-                sWidth = img.height * aspectTarget;
+                sWidth = sourceHeight * aspectTarget;
 
-                sx = (img.width - sWidth) / 2;
+                sx = (sourceWidth - sWidth) / 2;
 
                 sy = 0;
 
             } else {
 
-                sWidth = img.width;
+                sWidth = sourceWidth;
 
-                sHeight = img.width / aspectTarget;
+                sHeight = sourceWidth / aspectTarget;
 
                 sx = 0;
 
-                sy = (img.height - sHeight) / 2;
+                sy = (sourceHeight - sHeight) / 2;
 
             }
 
@@ -966,6 +1305,7 @@ const state = {
             state.overlayTheme = theme;
             const colors = getOverlayThemeColors(theme);
             state.customThemeColors = { ...colors };
+            applyAppTheme(colors);
             document.getElementById('custom-bg-color').value = colors.background;
             document.getElementById('custom-accent-color').value = colors.accent;
             document.getElementById('custom-text-color').value = colors.text;
@@ -989,7 +1329,7 @@ const state = {
         function getOverlayThemeColors(theme = state.overlayTheme) {
             const themes = {
                 gold: { background: '#FDFBF7', accent: '#D4AF37', text: '#2C2A29' },
-                sage: { background: '#F4F6F4', accent: '#8A9A86', text: '#2C2A29' },
+                sage: { background: '#F4F6F4', accent: '#ADC2A8', text: '#2C2A29' },
                 minimal: { background: '#FFFFFF', accent: '#2C2A29', text: '#2C2A29' },
                 rose: { background: '#FAF5F5', accent: '#E8D3D3', text: '#581825' },
                 ocean: { background: '#F3F7F8', accent: '#397C8A', text: '#20333A' },
@@ -1007,11 +1347,42 @@ const state = {
                 text: document.getElementById('custom-text-color').value
             };
             state.overlayTheme = 'custom';
+            applyAppTheme(state.customThemeColors);
             document.querySelectorAll('.overlay-theme-option').forEach(button => {
                 button.setAttribute('aria-pressed', 'false');
             });
             document.getElementById('custom-theme-status').textContent = 'Custom colors applied.';
             renderFinalCanvas();
+        }
+
+        function applyAppTheme(colors) {
+            const theme = document.body;
+            theme.dataset.appTheme = state.overlayTheme;
+            theme.style.setProperty('--app-background', colors.background);
+            theme.style.setProperty('--app-surface', mixThemeColors(colors.background, '#FFFFFF', 0.82));
+            theme.style.setProperty('--app-soft-surface', mixThemeColors(colors.background, colors.accent, 0.12));
+            theme.style.setProperty('--app-border', mixThemeColors(colors.background, colors.accent, 0.36));
+            theme.style.setProperty('--app-accent', colors.accent);
+            theme.style.setProperty('--app-accent-strong', mixThemeColors(colors.accent, '#000000', 0.2));
+            theme.style.setProperty('--app-text', colors.text);
+        }
+
+        function mixThemeColors(firstColor, secondColor, secondWeight) {
+            const first = firstColor.match(/^#([0-9a-f]{6})$/i);
+            const second = secondColor.match(/^#([0-9a-f]{6})$/i);
+            if (!first || !second) {
+                console.error(`Unable to blend app theme colors: ${firstColor}, ${secondColor}`);
+                return firstColor;
+            }
+
+            const firstRgb = [0, 2, 4].map(index => parseInt(first[1].slice(index, index + 2), 16));
+            const secondRgb = [0, 2, 4].map(index => parseInt(second[1].slice(index, index + 2), 16));
+            const blended = firstRgb.map((value, index) =>
+                Math.round(value * (1 - secondWeight) + secondRgb[index] * secondWeight)
+                    .toString(16)
+                    .padStart(2, '0')
+            );
+            return `#${blended.join('')}`;
         }
 
         function changeBorderStyle(style) {
@@ -1278,6 +1649,9 @@ const state = {
         function openAdminPanel() {
             DOM.adminDrawer.classList.remove('translate-x-full');
             DOM.cameraSelect.value = state.selectedCameraId;
+            syncEventFontInputs();
+            syncEventDateInputs();
+            syncPrintBackgroundOptions();
             document.getElementById('custom-bg-color').value = state.customThemeColors.background;
             document.getElementById('custom-accent-color').value = state.customThemeColors.accent;
             document.getElementById('custom-text-color').value = state.customThemeColors.text;
@@ -1296,13 +1670,157 @@ const state = {
 
         }
 
+        function initializePrintBackground() {
+            const image = DOM.printBackgroundImage;
+            const button = document.querySelector('[data-print-background="water-lilies"]');
+            const status = document.getElementById('print-background-status');
+
+            const handleImageLoad = () => {
+                button.disabled = false;
+                status.textContent = 'Water Lilies is ready. It appears around photos and in layout gaps.';
+            };
+
+            const handleImageError = () => {
+                button.disabled = true;
+                status.textContent = 'The Water Lilies background could not be loaded.';
+                console.error('Unable to load the Water Lilies print background.');
+            };
+
+            if (image.complete) {
+                if (image.naturalWidth > 0) {
+                    handleImageLoad();
+                } else {
+                    handleImageError();
+                }
+                return;
+            }
+
+            image.addEventListener('load', handleImageLoad, { once: true });
+            image.addEventListener('error', handleImageError, { once: true });
+        }
+
+        function setPrintBackground(background) {
+            if (!['theme', 'water-lilies', 'custom'].includes(background)) {
+                console.error(`Unknown print background: ${background}`);
+                return;
+            }
+
+            if (background === 'water-lilies' && DOM.printBackgroundImage.naturalWidth === 0) {
+                document.getElementById('print-background-status').textContent =
+                    'The Water Lilies background is not available. Try reloading the app.';
+                return;
+            }
+
+            if (background === 'custom' && !state.customPrintBackgroundImage) {
+                DOM.printBackgroundFileInput.click();
+                return;
+            }
+
+            state.printBackground = background;
+            syncPrintBackgroundOptions();
+            document.getElementById('print-background-status').textContent =
+                background === 'theme'
+                    ? 'Using the background color from the selected frame theme.'
+                    : background === 'water-lilies'
+                        ? 'Water Lilies appears around photos and in layout gaps.'
+                        : `${state.customPrintBackgroundName} appears around photos and in layout gaps.`;
+
+            if (state.currentScreen === 'review') {
+                renderFinalCanvas();
+            }
+        }
+
+        function handlePrintBackgroundUpload(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+
+            const status = document.getElementById('print-background-status');
+            if (!file.type.startsWith('image/')) {
+                status.textContent = 'Choose a supported image file.';
+                DOM.printBackgroundFileInput.value = '';
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                status.textContent = 'That image is larger than 10 MB. Choose a smaller background image.';
+                DOM.printBackgroundFileInput.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = () => {
+                if (typeof reader.result !== 'string') {
+                    status.textContent = 'The background image could not be read. Try another file.';
+                    DOM.printBackgroundFileInput.value = '';
+                    return;
+                }
+
+                const image = new Image();
+                image.onload = () => {
+                    state.customPrintBackgroundImage = image;
+                    state.customPrintBackgroundName = file.name;
+                    document.getElementById('custom-print-background-preview').src = reader.result;
+                    document.getElementById('custom-print-background-preview').classList.remove('hidden');
+                    document.getElementById('custom-print-background-placeholder').classList.add('hidden');
+                    document.getElementById('custom-print-background-name').textContent = file.name;
+                    document.getElementById('custom-print-background-remove').classList.remove('hidden');
+                    state.printBackground = 'custom';
+                    syncPrintBackgroundOptions();
+                    status.textContent = `${file.name} selected. It appears around photos and in layout gaps.`;
+                    DOM.printBackgroundFileInput.value = '';
+
+                    if (state.currentScreen === 'review') {
+                        renderFinalCanvas();
+                    }
+                };
+                image.onerror = () => {
+                    status.textContent = 'The selected file is not a supported image. Choose another file.';
+                    console.error('Unable to load the uploaded print background image.');
+                    DOM.printBackgroundFileInput.value = '';
+                };
+                image.src = reader.result;
+            };
+            reader.onerror = () => {
+                status.textContent = 'The background image could not be read. Try another file.';
+                console.error('Unable to read the uploaded print background image.');
+                DOM.printBackgroundFileInput.value = '';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeCustomPrintBackground() {
+            state.customPrintBackgroundImage = null;
+            state.customPrintBackgroundName = '';
+            DOM.printBackgroundFileInput.value = '';
+            document.getElementById('custom-print-background-preview').src = '';
+            document.getElementById('custom-print-background-preview').classList.add('hidden');
+            document.getElementById('custom-print-background-placeholder').classList.remove('hidden');
+            document.getElementById('custom-print-background-name').textContent = '';
+            document.getElementById('custom-print-background-remove').classList.add('hidden');
+
+            if (state.printBackground === 'custom') {
+                setPrintBackground('theme');
+            }
+            document.getElementById('print-background-status').textContent = 'Custom background removed.';
+        }
+
+        function syncPrintBackgroundOptions() {
+            document.querySelectorAll('.print-background-option').forEach(button => {
+                button.setAttribute('aria-pressed', String(button.dataset.printBackground === state.printBackground));
+            });
+        }
+
         function saveAdminSettings() {
             state.selectedCameraId = DOM.cameraSelect.value;
             state.eventData.title = document.getElementById('cfg-title').value.trim().toUpperCase() || "DENNIS & HONG'S WEDDING";
 
-            state.eventData.date = document.getElementById('cfg-date').value.trim().toUpperCase();
-
+            state.eventData.date = document.getElementById('cfg-date-picker').value;
             state.eventData.subtitle = document.getElementById('cfg-subtitle').value.trim();
+            state.eventData.fonts = {
+                title: getSavedFont(document.getElementById('cfg-title-font').value, 'Playfair Display'),
+                date: getSavedFont(document.getElementById('cfg-date-font').value, 'Cinzel'),
+                subtitle: getSavedFont(document.getElementById('cfg-subtitle-font').value, 'Montserrat')
+            };
 
             state.eventData.countdownSeconds = parseInt(document.getElementById('cfg-countdown').value);
 
@@ -1315,6 +1833,7 @@ const state = {
             }
 
             updateHeaderDisplay();
+            syncEventDateInputs();
 
             closeAdminPanel();
 

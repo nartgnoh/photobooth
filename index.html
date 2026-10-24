@@ -14,7 +14,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Photo Booth">
     <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="app-icon.png">
+    <link rel="apple-touch-icon" href="assets/app-icon.png">
 
     <!-- Tailwind CSS -->
 
@@ -39,12 +39,12 @@
 
 
 
-    <script src="tailwind.config.js"></script>
+    <script src="js/tailwind.config.js"></script>
 
 
 
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="border-frames.css?v=86f56fa">
+    <link rel="stylesheet" href="css/styles.css?v=ui-theme-sync-20261024">
+    <link rel="stylesheet" href="css/border-frames.css?v=86f56fa">
 
 </head>
 
@@ -138,8 +138,6 @@
 
                         <div class="w-full h-full bg-champagne/30 rounded border border-dashed border-gold/40 flex items-center justify-center text-gold/60">
 
-                            <i data-lucide="image" class="w-7 h-7"></i>
-
                         </div>
 
                     </div>
@@ -218,7 +216,6 @@
                             <div class="bg-champagne/30 rounded border border-dashed border-gold/40"></div>
                         </div>
                         <div class="flex-1 border-t border-sage/60 flex items-center justify-center">
-                            <span class="h-1 w-10 rounded-full bg-roseDust/60"></span>
                         </div>
                     </div>
 
@@ -241,7 +238,7 @@
 
                             <div class="w-3/5 bg-champagne/30 rounded border border-dashed border-gold/40"></div>
 
-                            <div class="flex-1 flex items-center justify-center text-gold/60 text-[8px]">EVENT</div>
+                            <div class="flex-1"></div>
 
                         </div>
 
@@ -351,11 +348,11 @@
 
         <!-- 3. REVIEW & PRINT STUDIO SCREEN -->
 
-        <section id="screen-review" class="hidden w-full max-w-6xl flex-col lg:flex-row items-center lg:items-start justify-start lg:justify-center gap-8 my-auto z-10 py-2 px-2">
+        <section id="screen-review" class="hidden w-full max-w-6xl flex-col lg:flex-row items-center lg:items-start justify-start lg:justify-center gap-4 my-auto z-10 py-2 px-2">
 
-            <div class="flex-1 w-full lg:w-auto flex flex-col items-center">
+            <div class="review-preview-column flex-1 w-full lg:w-auto flex flex-col items-center">
 
-                <div class="text-center mb-3">
+                <div class="review-preview-heading text-center mb-3">
 
                     <span class="text-xs uppercase tracking-widest text-gold font-semibold">Print Preview</span>
 
@@ -363,13 +360,13 @@
 
                 </div>
 
-                <div class="relative bg-white px-3 pt-6 pb-3 rounded-2xl shadow-2xl border border-champagne max-w-sm md:max-w-lg w-full">
+                <div class="review-preview-frame relative bg-white px-3 pt-6 pb-3 rounded-2xl shadow-2xl border border-champagne max-w-sm md:max-w-lg w-full">
 
-                    <canvas id="output-canvas" class="w-[95%] h-auto mx-auto rounded-lg border border-gray-100 shadow-inner block"></canvas>
+                    <canvas id="output-canvas" class="review-preview-canvas mx-auto rounded-lg border border-gray-100 shadow-inner block"></canvas>
 
                 </div>
 
-                <div class="mt-4 grid w-full max-w-lg grid-cols-2 gap-3">
+                <div class="review-actions mt-4 grid w-full max-w-lg grid-cols-2 gap-3">
 
                     <button onclick="triggerPrint()" class="col-span-2 w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-gold to-deepGold text-white font-cinzel font-semibold shadow-md hover:shadow-lg hover:opacity-95 transition flex items-center justify-center space-x-2">
 
@@ -401,9 +398,9 @@
 
             </div>
 
-            <div class="w-full lg:w-80 flex flex-col space-y-6 bg-white p-6 rounded-2xl border border-champagne/80 shadow-xl">
+            <div class="review-border-panel w-full lg:w-80 flex flex-col space-y-6 bg-white p-6 rounded-2xl border border-champagne/80 shadow-xl">
 
-                <div class="space-y-3">
+                <div class="review-border-picker space-y-3">
 
                     <div>
                         <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Choose a Print Border</h4>
@@ -516,15 +513,49 @@
 
                     <label for="cfg-title" class="block text-xs font-medium text-gray-700 mb-1">Event Name or Host</label>
 
-                    <input type="text" id="cfg-title" value="DENNIS & HONG'S WEDDING" placeholder="e.g. Doug's Birthday" class="w-full px-3 py-2 border border-champagne rounded-xl focus:ring-1 focus:ring-gold outline-none text-sm">
+                    <div class="flex gap-2">
+                        <input type="text" id="cfg-title" value="DENNIS & HONG'S WEDDING" placeholder="e.g. Doug's Birthday" class="min-w-0 flex-1 px-3 py-2 border border-champagne rounded-xl focus:ring-1 focus:ring-gold outline-none text-sm">
+                        <select id="cfg-title-font" aria-label="Event name font" onchange="updateEventFont('title', this.value)" class="w-36 shrink-0 px-2 py-2 border border-champagne rounded-xl focus:ring-1 focus:ring-gold outline-none text-xs bg-white">
+                            <option value="Alex Brush" style="font-family: 'Alex Brush', cursive">Alex Brush</option>
+                            <option value="Cinzel" style="font-family: Cinzel, serif">Cinzel</option>
+                            <option value="Cooper Black" style="font-family: 'Cooper Black', serif">Cooper Black</option>
+                            <option value="Courier New" style="font-family: 'Courier New', monospace">Courier New</option>
+                            <option value="Helvetica" style="font-family: Helvetica, sans-serif">Helvetica</option>
+                            <option value="Montserrat" style="font-family: Montserrat, sans-serif">Montserrat</option>
+                            <option value="New Century Schoolbook" style="font-family: 'New Century Schoolbook', serif">New Century Schoolbook</option>
+                            <option value="Optima" style="font-family: Optima, sans-serif">Optima</option>
+                            <option value="Playfair Display" style="font-family: 'Playfair Display', serif">Playfair Display</option>
+                            <option value="Times New Roman" style="font-family: 'Times New Roman', serif">Times New Roman</option>
+                        </select>
+                    </div>
 
                 </div>
 
                 <div>
 
-                    <label for="cfg-date" class="block text-xs font-medium text-gray-700 mb-1">Date or Occasion (Optional)</label>
+                    <label for="cfg-date-display" class="block text-xs font-medium text-gray-700 mb-1">Event Date (DD/MM/YYYY, optional)</label>
 
-                    <input type="text" id="cfg-date" value="MAY 20, 2028" placeholder="e.g. OCTOBER 24, 2026" class="w-full px-3 py-2 border border-champagne rounded-xl focus:ring-1 focus:ring-gold outline-none text-sm">
+                    <div class="flex gap-2">
+                        <div class="relative flex min-w-0 flex-1">
+                            <input type="text" id="cfg-date-display" value="20/05/2028" readonly aria-label="Event date in day/month/year format" class="min-w-0 flex-1 rounded-l-xl border border-champagne bg-white px-3 py-2 text-sm text-charcoal">
+                            <span aria-hidden="true" class="flex w-12 items-center justify-center rounded-r-xl border border-l-0 border-champagne bg-warmSand text-gold">
+                                <i data-lucide="calendar-days" class="h-4 w-4"></i>
+                            </span>
+                            <input type="date" id="cfg-date-picker" value="2028-05-20" aria-label="Choose event date" onchange="updateEventDate(this.value)" class="absolute inset-y-0 right-0 w-12 cursor-pointer opacity-0 focus-visible:rounded-r-xl focus-visible:ring-2 focus-visible:ring-gold">
+                        </div>
+                        <select id="cfg-date-font" aria-label="Date font" onchange="updateEventFont('date', this.value)" class="w-36 shrink-0 px-2 py-2 border border-champagne rounded-xl focus:ring-1 focus:ring-gold outline-none text-xs bg-white">
+                            <option value="Alex Brush" style="font-family: 'Alex Brush', cursive">Alex Brush</option>
+                            <option value="Cinzel" style="font-family: Cinzel, serif">Cinzel</option>
+                            <option value="Cooper Black" style="font-family: 'Cooper Black', serif">Cooper Black</option>
+                            <option value="Courier New" style="font-family: 'Courier New', monospace">Courier New</option>
+                            <option value="Helvetica" style="font-family: Helvetica, sans-serif">Helvetica</option>
+                            <option value="Montserrat" style="font-family: Montserrat, sans-serif">Montserrat</option>
+                            <option value="New Century Schoolbook" style="font-family: 'New Century Schoolbook', serif">New Century Schoolbook</option>
+                            <option value="Optima" style="font-family: Optima, sans-serif">Optima</option>
+                            <option value="Playfair Display" style="font-family: 'Playfair Display', serif">Playfair Display</option>
+                            <option value="Times New Roman" style="font-family: 'Times New Roman', serif">Times New Roman</option>
+                        </select>
+                    </div>
 
                 </div>
 
@@ -532,7 +563,21 @@
 
                     <label for="cfg-subtitle" class="block text-xs font-medium text-gray-700 mb-1">Footer Message / Hashtag (Optional)</label>
 
-                    <input type="text" id="cfg-subtitle" value="Thank you for joining us!" placeholder="e.g. #Wedding2028" class="w-full px-3 py-2 border border-champagne rounded-xl focus:ring-1 focus:ring-gold outline-none text-sm">
+                    <div class="flex gap-2">
+                        <input type="text" id="cfg-subtitle" value="Thank you for joining us!" placeholder="e.g. #Wedding2028" class="min-w-0 flex-1 px-3 py-2 border border-champagne rounded-xl focus:ring-1 focus:ring-gold outline-none text-sm">
+                        <select id="cfg-subtitle-font" aria-label="Footer message font" onchange="updateEventFont('subtitle', this.value)" class="w-36 shrink-0 px-2 py-2 border border-champagne rounded-xl focus:ring-1 focus:ring-gold outline-none text-xs bg-white">
+                            <option value="Alex Brush" style="font-family: 'Alex Brush', cursive">Alex Brush</option>
+                            <option value="Cinzel" style="font-family: Cinzel, serif">Cinzel</option>
+                            <option value="Cooper Black" style="font-family: 'Cooper Black', serif">Cooper Black</option>
+                            <option value="Courier New" style="font-family: 'Courier New', monospace">Courier New</option>
+                            <option value="Helvetica" style="font-family: Helvetica, sans-serif">Helvetica</option>
+                            <option value="Montserrat" style="font-family: Montserrat, sans-serif">Montserrat</option>
+                            <option value="New Century Schoolbook" style="font-family: 'New Century Schoolbook', serif">New Century Schoolbook</option>
+                            <option value="Optima" style="font-family: Optima, sans-serif">Optima</option>
+                            <option value="Playfair Display" style="font-family: 'Playfair Display', serif">Playfair Display</option>
+                            <option value="Times New Roman" style="font-family: 'Times New Roman', serif">Times New Roman</option>
+                        </select>
+                    </div>
 
                 </div>
 
@@ -560,6 +605,41 @@
 
                 <h4 class="text-xs font-bold text-gold uppercase tracking-wider">Print Design</h4>
 
+                <div class="space-y-2">
+
+                    <label class="block text-xs font-medium text-gray-700">Print Background</label>
+
+                    <div class="grid grid-cols-3 gap-2">
+
+                        <button type="button" data-print-background="theme" aria-pressed="true" onclick="setPrintBackground('theme')" class="print-background-option flex flex-col items-center gap-1 rounded-xl border border-champagne p-2 text-center text-xs font-medium hover:border-gold focus:border-gold">
+                            <span class="h-12 w-full rounded-lg border border-champagne" style="background-color: #FDFBF7"></span>
+                            <span>Theme Color</span>
+                        </button>
+
+                        <button type="button" data-print-background="water-lilies" aria-pressed="false" onclick="setPrintBackground('water-lilies')" disabled class="print-background-option flex flex-col items-center gap-1 rounded-xl border border-champagne p-2 text-center text-xs font-medium hover:border-gold focus:border-gold disabled:cursor-wait disabled:opacity-60">
+                            <img id="water-lilies-background-image" src="assets/water-lilies-background.png" alt="" class="h-12 w-full rounded-lg object-cover">
+                            <span>Water Lilies</span>
+                        </button>
+
+                        <button type="button" data-print-background="custom" aria-pressed="false" onclick="setPrintBackground('custom')" class="print-background-option flex flex-col items-center gap-1 rounded-xl border border-champagne p-2 text-center text-xs font-medium hover:border-gold focus:border-gold">
+                            <img id="custom-print-background-preview" alt="Selected custom print background" class="hidden h-12 w-full rounded-lg object-cover">
+                            <span id="custom-print-background-placeholder" class="flex h-12 w-full items-center justify-center rounded-lg border border-dashed border-champagne text-gray-500">Choose file</span>
+                            <span>Custom Image</span>
+                        </button>
+
+                    </div>
+
+                    <input type="file" id="cfg-print-background-file" accept="image/*" aria-label="Choose custom print background image" onchange="handlePrintBackgroundUpload(event)" class="sr-only">
+
+                    <div class="flex items-center gap-2">
+                        <p id="custom-print-background-name" class="min-w-0 flex-1 truncate text-xs text-gray-500" title="Selected custom background image"></p>
+                        <button type="button" id="custom-print-background-remove" onclick="removeCustomPrintBackground()" class="hidden shrink-0 rounded-lg border border-champagne bg-white px-2 py-1 text-xs font-medium text-charcoal hover:bg-warmSand">Remove image</button>
+                    </div>
+
+                    <p id="print-background-status" class="text-xs text-gray-500" role="status" aria-live="polite">Loading Water Lilies background…</p>
+
+                </div>
+
                 <div class="space-y-3">
 
                     <label class="block text-xs font-medium text-gray-700">Overlay Frame Theme</label>
@@ -572,7 +652,7 @@
                         </button>
 
                         <button type="button" data-theme="sage" aria-pressed="false" onclick="changeOverlayTheme('sage')" class="overlay-theme-option p-2.5 rounded-xl border border-champagne text-xs font-medium text-center hover:border-gold focus:border-gold focus:bg-warmSand flex flex-col items-center space-y-1">
-                            <span class="w-4 h-4 rounded-full inline-block" style="background-color: #8A9A86"></span>
+                            <span class="w-4 h-4 rounded-full inline-block" style="background-color: #ADC2A8"></span>
                             <span>Botanical Sage</span>
                         </button>
 
@@ -733,8 +813,8 @@
 
 
 
-    <script src="border-frames.js?v=86f56fa"></script>
-    <script src="app.js?v=86f56fa"></script>
+    <script src="js/border-frames.js?v=86f56fa"></script>
+    <script src="js/app.js?v=single-caption-box-centered-20261024"></script>
 
 </body>
 

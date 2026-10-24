@@ -18,7 +18,7 @@ tailwind.config = {
 
                         roseDust: '#E8D3D3',
 
-                        sage: '#8A9A86',
+                        sage: '#ADC2A8',
 
                         charcoal: '#2C2A29',
 
