@@ -9,7 +9,7 @@ A browser-based photo booth for events. Use a phone, tablet, or computer camera 
 - Event title, date, message, and optional logo on photo designs.
 - Built-in frame themes and customizable colors.
 - Download photos, print from the browser, and revisit recent captures in the session gallery.
-- Full-screen kiosk interface and installable web app support.
+- Installable web app support for using the booth from a Home Screen.
 
 ## Run locally
 
@@ -35,7 +35,7 @@ The page loads Tailwind CSS, Lucide icons, Canvas Confetti, and Google Fonts fro
 4. Review the result. Download it or choose **Print** to open the device's print dialog.
 5. Use the gallery to view or reprint recent captures from the current session.
 
-For iPad use, serve or deploy the app over HTTPS, open it in Safari, and use **Share → Add to Home Screen** for a kiosk-style app. On iOS, browser full-screen is limited; adding the app to the Home Screen provides the intended standalone experience.
+For iPad use, serve or deploy the app over HTTPS, open it in Safari, and use **Share → Add to Home Screen** to make the booth available as an app.
 
 Printing uses the browser's normal print dialog. Connect and configure the printer on the device first; for a Canon SELPHY, use the print options available through the operating system or AirPrint where supported.
 

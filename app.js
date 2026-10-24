@@ -95,61 +95,8 @@ const state = {
             lucide.createIcons();
 
             updateHeaderDisplay();
-            updateFullscreenButton();
 
         });
-
-        function isStandaloneApp() {
-            return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-        }
-
-        function isIOSBrowser() {
-            return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        }
-
-        function updateFullscreenButton() {
-            const button = document.getElementById('fullscreen-button');
-            const isFullscreen = Boolean(document.fullscreenElement);
-            const isStandalone = isStandaloneApp();
-            const label = isFullscreen ? 'Exit Full Screen' : 'Full Screen';
-
-            button.classList.toggle('hidden', isStandalone && !isFullscreen);
-            button.setAttribute('aria-label', label);
-            button.title = label;
-            button.querySelector('span').textContent = label;
-        }
-
-        async function toggleFullScreen() {
-            if (document.fullscreenElement) {
-                try {
-                    await document.exitFullscreen();
-                } catch (error) {
-                    console.error('Could not exit browser full-screen mode:', error);
-                    document.getElementById('fullscreen-help').classList.remove('hidden');
-                }
-                return;
-            }
-
-            if (!isIOSBrowser() && document.fullscreenEnabled && document.documentElement.requestFullscreen) {
-                try {
-                    await document.documentElement.requestFullscreen();
-                    if (document.fullscreenElement) {
-                        return;
-                    }
-                } catch (error) {
-                    console.error('Could not enter browser full-screen mode:', error);
-                }
-            }
-
-            document.getElementById('fullscreen-help').classList.remove('hidden');
-        }
-
-        function closeFullscreenHelp() {
-            document.getElementById('fullscreen-help').classList.add('hidden');
-        }
-
-        document.addEventListener('fullscreenchange', updateFullscreenButton);
 
         function updateHeaderDisplay() {
 
