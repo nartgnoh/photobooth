@@ -1,8 +1,13 @@
 /* Touch & Kiosk Optimizations */
 
-        body {
+        body.h-screen.w-screen {
 
             background-color: #FDFBF7;
+            box-sizing: border-box;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 
             user-select: none;
 
@@ -16,6 +21,12 @@
 
             font-family: 'Montserrat', sans-serif;
 
+        }
+
+        @media all and (display-mode: standalone) {
+            body {
+                overscroll-behavior-y: none;
+            }
         }
 
         /* Subtle Gold Shimmer Animation */

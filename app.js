@@ -95,8 +95,49 @@ const state = {
             lucide.createIcons();
 
             updateHeaderDisplay();
+            updateFullscreenButton();
 
         });
+
+        function isStandaloneApp() {
+            return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+        }
+
+        function updateFullscreenButton() {
+            const button = document.getElementById('fullscreen-button');
+            const isFullscreen = Boolean(document.fullscreenElement);
+            const isStandalone = isStandaloneApp();
+
+            button.classList.toggle('hidden', isStandalone && !isFullscreen);
+            button.setAttribute('aria-label', isFullscreen ? 'Exit Full Screen' : 'Full Screen');
+            button.title = isFullscreen ? 'Exit Full Screen' : 'Full Screen';
+        }
+
+        async function toggleFullScreen() {
+            if (document.fullscreenElement) {
+                await document.exitFullscreen();
+                updateFullscreenButton();
+                return;
+            }
+
+            if (document.fullscreenEnabled && document.documentElement.requestFullscreen) {
+                try {
+                    await document.documentElement.requestFullscreen();
+                    updateFullscreenButton();
+                    return;
+                } catch (error) {
+                    console.error('Could not enter browser full-screen mode:', error);
+                }
+            }
+
+            document.getElementById('fullscreen-help').classList.remove('hidden');
+        }
+
+        function closeFullscreenHelp() {
+            document.getElementById('fullscreen-help').classList.add('hidden');
+        }
+
+        document.addEventListener('fullscreenchange', updateFullscreenButton);
 
         function updateHeaderDisplay() {
 
