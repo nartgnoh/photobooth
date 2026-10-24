@@ -30,7 +30,11 @@ const state = {
 
             webcamStream: null,
 
+            cameraStartPromise: null,
+
             selectedCameraId: '',
+
+            audioContext: null,
 
             eventLogoDataUrl: '',
 
@@ -148,31 +152,56 @@ const state = {
         }
 
         async function startWebcam() {
-            try {
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    throw new Error("Camera access requires a supported browser and a secure connection (HTTPS or localhost).");
-                }
+            if (state.cameraStartPromise) {
+                return state.cameraStartPromise;
+            }
 
-                const videoConstraints = {
-                    ...(state.selectedCameraId
-                        ? { deviceId: { exact: state.selectedCameraId } }
-                        : { facingMode: "user" }),
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 }
-                };
-                const constraints = {
-                    video: videoConstraints,
-                    audio: false
-                };
-                state.webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
-                DOM.video.srcObject = state.webcamStream;
-                await DOM.video.play();
-                return true;
-            } catch (err) {
-                stopWebcam();
-                alert(`Unable to start the camera. Please allow camera access and use HTTPS or localhost.\n\n${err.message}`);
-                console.error("Webcam error:", err);
-                return false;
+            const startPromise = (async () => {
+                try {
+                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                        throw new Error("Camera access requires a supported browser and a secure connection (HTTPS or localhost).");
+                    }
+
+                    const videoConstraints = {
+                        ...(state.selectedCameraId
+                            ? { deviceId: { exact: state.selectedCameraId } }
+                            : { facingMode: "user" }),
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    };
+                    const constraints = {
+                        video: videoConstraints,
+                        audio: false
+                    };
+                    state.webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    DOM.video.muted = true;
+                    DOM.video.playsInline = true;
+                    DOM.video.srcObject = state.webcamStream;
+                    await DOM.video.play();
+                    return true;
+                } catch (err) {
+                    stopWebcam();
+                    const errorName = err instanceof DOMException ? err.name : '';
+                    const message = errorName === 'AbortError'
+                        ? "The browser interrupted camera startup. Close other tabs or apps using the camera, then reload the page and try again."
+                        : errorName === 'NotAllowedError' || errorName === 'SecurityError'
+                            ? "Allow camera access for this website in iPad Settings, then reload the page."
+                            : errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError'
+                                ? "No camera was found. Check that a camera is available and try again."
+                                : `Please allow camera access and use HTTPS or localhost.\n\n${err.message}`;
+                    alert(`Unable to start the camera. ${message}`);
+                    console.error("Webcam error:", err);
+                    return false;
+                }
+            })();
+
+            state.cameraStartPromise = startPromise;
+            try {
+                return await startPromise;
+            } finally {
+                if (state.cameraStartPromise === startPromise) {
+                    state.cameraStartPromise = null;
+                }
             }
         }
 
@@ -225,45 +254,101 @@ const state = {
 
             }
 
+            DOM.video.srcObject = null;
+
         }
 
         function playBeepSound(frequency = 800, duration = 0.1) {
 
-            try {
+            const ctx = state.audioContext;
+            if (!ctx || ctx.state !== 'running') return;
 
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
 
-                const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
 
-                const gain = ctx.createGain();
+            osc.type = 'sine';
 
-                osc.type = 'sine';
+            osc.frequency.value = frequency;
 
-                osc.frequency.value = frequency;
+            gain.gain.setValueAtTime(0.2, ctx.currentTime);
 
-                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
 
-                gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+            osc.connect(gain);
 
-                osc.connect(gain);
+            gain.connect(ctx.destination);
 
-                gain.connect(ctx.destination);
+            osc.start();
 
-                osc.start();
+            osc.stop(ctx.currentTime + duration);
 
-                osc.stop(ctx.currentTime + duration);
+        }
 
-            } catch (e) {}
+        async function unlockAudio() {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) return;
+
+            if (!state.audioContext) {
+                state.audioContext = new AudioContextClass();
+            }
+
+            if (state.audioContext.state === 'suspended') {
+                await state.audioContext.resume();
+            }
 
         }
 
         function playShutterSound() {
 
-            playBeepSound(1200, 0.15);
+            const ctx = state.audioContext;
+            if (!ctx || ctx.state !== 'running') return;
+
+            const duration = 0.12;
+            const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * duration), ctx.sampleRate);
+            const samples = buffer.getChannelData(0);
+            for (let i = 0; i < samples.length; i++) {
+                samples[i] = Math.random() * 2 - 1;
+            }
+
+            const noise = ctx.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'highpass';
+            filter.frequency.value = 1400;
+
+            const noiseGain = ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.35, ctx.currentTime);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+
+            noise.connect(filter);
+            filter.connect(noiseGain);
+            noiseGain.connect(ctx.destination);
+            noise.start();
+            noise.stop(ctx.currentTime + duration);
+
+            const click = ctx.createOscillator();
+            const clickGain = ctx.createGain();
+            click.type = 'triangle';
+            click.frequency.setValueAtTime(1500, ctx.currentTime);
+            click.frequency.exponentialRampToValueAtTime(450, ctx.currentTime + 0.055);
+            clickGain.gain.setValueAtTime(0.18, ctx.currentTime);
+            clickGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+            click.connect(clickGain);
+            clickGain.connect(ctx.destination);
+            click.start();
+            click.stop(ctx.currentTime + 0.06);
 
         }
 
         async function startCaptureSequence() {
+
+            try {
+                await unlockAudio();
+            } catch (error) {
+                console.error('Could not enable capture sounds:', error);
+            }
 
             state.capturedImages = [];
 

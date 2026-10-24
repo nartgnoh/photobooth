@@ -6,6 +6,7 @@ A browser-based photo booth for events. Use a phone, tablet, or computer camera 
 
 - Four photo layouts: single landscape, two-photo strip, four-photo grid, and four-photo portrait strip.
 - Live camera preview, camera selection, countdown, and multi-shot capture.
+- Countdown beeps and a camera-style shutter sound for each photo.
 - Event title, date, message, and optional logo on photo designs.
 - Built-in frame themes and customizable colors.
 - Download photos, print from the browser, and revisit recent captures in the session gallery.
