@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <title>Photo Booth Kiosk</title>
+
+    <!-- Tailwind CSS -->
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Lucide Icons -->
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+
+    <!-- Canvas-Confetti for celebration effects -->
+
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <!-- Google Fonts -->
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Alex+Brush&family=Cinzel:wght@400;600;700&family=Montserrat:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+
+
+    <script src="tailwind.config.js"></script>
+
+
+
+    <link rel="stylesheet" href="styles.css">
+
+</head>
+
+<body class="h-screen w-screen text-charcoal flex flex-col justify-between select-none relative">
+
+
+
+    <!-- Flash Overlay Effect -->
+
+    <div id="flash-overlay" class="fixed inset-0 bg-white z-[100]"></div>
+
+
+
+    <!-- HEADER / NAVIGATION BAR -->
+
+    <header class="w-full py-4 px-6 md:px-10 flex justify-between items-center bg-cream/90 backdrop-blur-md border-b border-champagne/60 z-30 relative shadow-sm">
+
+        <div class="flex items-center space-x-3">
+
+            <div class="w-10 h-10 rounded-full bg-champagne/40 border border-gold/50 flex items-center justify-center text-gold">
+
+                <i data-lucide="camera" class="w-5 h-5"></i>
+
+            </div>
+
+            <div>
+
+                <h1 id="header-title" class="font-cinzel text-lg md:text-xl tracking-wider text-charcoal font-semibold">DENNIS & HONG'S WEDDING</h1>
+
+                <p id="header-date" class="text-xs text-gold font-medium tracking-widest uppercase"></p>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="flex items-center space-x-3">
+
+            <button onclick="toggleGalleryModal()" class="px-3 py-2 rounded-full bg-warmSand border border-champagne text-charcoal hover:bg-champagne/50 transition flex items-center space-x-2 text-sm font-medium">
+
+                <i data-lucide="images" class="w-4 h-4 text-gold"></i>
+
+                <span class="hidden sm:inline">Recent Photos</span>
+
+            </button>
+
+            <button onclick="openAdminPanel()" class="p-2.5 rounded-full bg-warmSand border border-champagne text-charcoal hover:bg-champagne/50 transition" title="Event Settings">
+
+                <i data-lucide="settings" class="w-5 h-5"></i>
+
+            </button>
+
+        </div>
+
+    </header>
+
+
+
+    <!-- MAIN VIEW CONTAINER -->
+
+    <main class="flex-1 relative w-full h-full overflow-hidden flex items-center justify-center p-4 md:p-6">
+
+
+
+        <!-- 1. MODE SELECTION SCREEN -->
+
+        <section id="screen-mode" class="w-full max-w-6xl flex flex-col items-center justify-center space-y-8 animate-fade-in z-10 my-auto">
+
+            <div class="text-center space-y-2 max-w-lg">
+
+                <span class="text-gold font-script text-3xl md:text-4xl block">Welcome to the Photo Booth</span>
+
+                <h2 id="mode-subtitle" class="font-serif text-2xl md:text-3xl text-charcoal">Choose Your Photo Layout</h2>
+
+                <p class="text-xs md:text-sm text-gray-500">Tap standard photo or a multi-photo strip layout to begin.</p>
+
+            </div>
+
+
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-4xl px-4">
+
+                <!-- Single Photo Option -->
+
+                <button onclick="selectTemplate('single')" class="group relative bg-white border-2 border-champagne hover:border-gold rounded-2xl p-6 flex flex-col items-center justify-between shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+
+                    <div class="w-32 h-24 bg-warmSand/60 rounded-lg border border-champagne/80 p-2 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+
+                        <div class="w-full h-full bg-champagne/30 rounded border border-dashed border-gold/40 flex items-center justify-center text-gold/60">
+
+                            <i data-lucide="image" class="w-7 h-7"></i>
+
+                        </div>
+
+                    </div>
+
+                    <div class="text-center">
+
+                        <h3 class="font-cinzel font-semibold text-lg text-charcoal">Single Landscape</h3>
+
+                        <p class="text-xs text-gray-500 mt-1">One large landscape photo</p>
+
+                    </div>
+
+                    <span class="mt-4 px-4 py-1.5 rounded-full bg-champagne/30 text-gold text-xs font-semibold group-hover:bg-gold group-hover:text-white transition">Select Layout</span>
+
+                </button>
+
+
+
+                <!-- Duplicate Strip Option -->
+
+                <button onclick="selectTemplate('strip2')" class="group relative bg-white border-2 border-champagne hover:border-gold rounded-2xl p-6 flex flex-col items-center justify-between shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+
+                    <div class="w-24 h-32 bg-warmSand/60 rounded-lg border border-champagne/80 p-2 flex items-center justify-between mb-4 group-hover:scale-105 transition-transform">
+
+                        <div class="w-9 h-24 flex flex-col justify-between">
+
+                            <div class="h-5 bg-champagne/30 rounded border border-dashed border-gold/40"></div>
+
+                            <div class="h-5 bg-champagne/30 rounded border border-dashed border-gold/40"></div>
+
+                            <div class="h-5 bg-champagne/30 rounded border border-dashed border-gold/40"></div>
+
+                            <div class="h-5 bg-champagne/30 rounded border border-dashed border-gold/40"></div>
+
+                        </div>
+
+                        <div class="h-24 border-l-2 border-dashed border-gold/70"></div>
+
+                        <div class="w-9 h-24 flex flex-col justify-between">
+
+                            <div class="h-5 bg-champagne/30 rounded border border-dashed border-gold/40"></div>
+
+                            <div class="h-5 bg-champagne/30 rounded border border-dashed border-gold/40"></div>
+
+                            <div class="h-5 bg-champagne/30 rounded border border-dashed border-gold/40"></div>
+
+                            <div class="h-5 bg-champagne/30 rounded border border-dashed border-gold/40"></div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="text-center">
+
+                        <h3 class="font-cinzel font-semibold text-lg text-charcoal">2 × 4-Photo Strips</h3>
+
+                        <p class="text-xs text-gray-500 mt-1">Two matching four-photo strips with a cut line</p>
+
+                    </div>
+
+                    <span class="mt-4 px-4 py-1.5 rounded-full bg-champagne/30 text-gold text-xs font-semibold group-hover:bg-gold group-hover:text-white transition">Select Layout</span>
+
+                </button>
+
+
+
+                <!-- 4-Photo Grid Option -->
+
+                <button onclick="selectTemplate('grid4')" class="group relative bg-white border-2 border-champagne hover:border-gold rounded-2xl p-6 flex flex-col items-center justify-between shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+
+                    <div class="w-32 h-24 bg-warmSand/60 rounded-lg border border-champagne/80 p-2 flex flex-col justify-between mb-4 group-hover:scale-105 transition-transform">
+
+                        <div class="flex gap-1 w-full h-2/3">
+
+                            <div class="w-3/5 bg-champagne/30 rounded border border-dashed border-gold/40"></div>
+
+                            <div class="flex-1 flex items-center justify-center text-gold/60 text-[8px]">EVENT</div>
+
+                        </div>
+
+                        <div class="flex gap-1 w-full h-1/3">
+
+                            <div class="flex-1 bg-champagne/30 rounded border border-dashed border-gold/40"></div>
+
+                            <div class="flex-1 bg-champagne/30 rounded border border-dashed border-gold/40"></div>
+
+                            <div class="flex-1 bg-champagne/30 rounded border border-dashed border-gold/40"></div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="text-center">
+
+                        <h3 class="font-cinzel font-semibold text-lg text-charcoal">4-Photo Card</h3>
+
+                        <p class="text-xs text-gray-500 mt-1">Featured photo with three below</p>
+
+                    </div>
+
+                    <span class="mt-4 px-4 py-1.5 rounded-full bg-champagne/30 text-gold text-xs font-semibold group-hover:bg-gold group-hover:text-white transition">Select Layout</span>
+
+                </button>
+
+                <!-- 4-Photo Portrait Option -->
+
+                <button onclick="selectTemplate('portrait4')" class="group relative bg-white border-2 border-champagne hover:border-gold rounded-2xl p-6 flex flex-col items-center justify-between shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+
+                    <div class="w-24 h-32 bg-warmSand/60 rounded-lg border border-champagne/80 p-2 flex flex-col gap-1.5 mb-4 group-hover:scale-105 transition-transform">
+                        <div class="grid grid-cols-2 grid-rows-2 gap-1 h-24">
+                            <div class="bg-champagne/30 rounded border border-dashed border-gold/40"></div>
+                            <div class="bg-champagne/30 rounded border border-dashed border-gold/40"></div>
+                            <div class="bg-champagne/30 rounded border border-dashed border-gold/40"></div>
+                            <div class="bg-champagne/30 rounded border border-dashed border-gold/40"></div>
+                        </div>
+                        <div class="flex-1 border-t border-sage/60 flex items-center justify-center">
+                            <span class="h-1 w-10 rounded-full bg-roseDust/60"></span>
+                        </div>
+                    </div>
+
+                    <div class="text-center">
+                        <h3 class="font-cinzel font-semibold text-lg text-charcoal">4-Photo Portrait</h3>
+                        <p class="text-xs text-gray-500 mt-1">Four photos in a portrait grid</p>
+                    </div>
+
+                    <span class="mt-4 px-4 py-1.5 rounded-full bg-champagne/30 text-gold text-xs font-semibold group-hover:bg-gold group-hover:text-white transition">Select Layout</span>
+
+                </button>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- 2. LIVE CAMERA CAPTURE SCREEN -->
+
+        <section id="screen-capture" class="hidden w-full max-w-4xl flex-col items-center justify-center relative my-auto z-10">
+
+            <div class="relative w-full max-w-2xl aspect-[4/3] bg-black rounded-3xl overflow-hidden border-4 border-gold/60 shadow-2xl flex items-center justify-center">
+
+                <video id="webcam" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
+
+
+
+                <div id="countdown-overlay" class="hidden absolute inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-20">
+
+                    <span id="countdown-number" class="font-serif text-9xl font-bold text-white drop-shadow-lg animate-ping">3</span>
+
+                </div>
+
+
+
+                <div class="absolute top-4 left-4 right-4 flex justify-between items-center z-10">
+
+                    <div class="px-4 py-1.5 rounded-full bg-black/50 backdrop-blur-md text-white text-xs font-medium border border-white/20 flex items-center space-x-2">
+
+                        <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+
+                        <span id="sequence-indicator">Photo 1 of 4</span>
+
+                    </div>
+
+                    <button onclick="cancelCapture()" class="p-2 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 transition">
+
+                        <i data-lucide="x" class="w-5 h-5"></i>
+
+                    </button>
+
+                </div>
+
+
+
+                <div id="pose-tip" class="absolute bottom-4 inset-x-8 py-2 rounded-xl bg-black/60 backdrop-blur-md text-white text-center text-sm font-light tracking-wide border border-white/10 z-10">
+
+                    Get Ready! Pose for the camera...
+
+                </div>
+
+            </div>
+
+
+
+            <div class="mt-6 flex items-center space-x-6">
+
+                <button id="shutter-btn" onclick="startCaptureSequence()" class="w-20 h-20 rounded-full bg-gradient-to-tr from-gold to-yellow-200 p-1 shadow-lg hover:scale-105 active:scale-95 transition-transform gold-glow flex items-center justify-center">
+
+                    <div class="w-full h-full rounded-full border-2 border-white flex items-center justify-center bg-cream/20">
+
+                        <div class="w-12 h-12 rounded-full bg-white flex items-center justify-center text-gold">
+
+                            <i data-lucide="camera" class="w-6 h-6"></i>
+
+                        </div>
+
+                    </div>
+
+                </button>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- 3. REVIEW & PRINT STUDIO SCREEN -->
+
+        <section id="screen-review" class="hidden w-full max-w-6xl flex-col lg:flex-row items-center lg:items-start justify-start lg:justify-center gap-8 my-auto z-10 overflow-y-auto max-h-[85vh] py-2 px-2">
+
+            <div class="flex-1 w-full lg:w-auto flex flex-col items-center">
+
+                <div class="text-center mb-3">
+
+                    <span class="text-xs uppercase tracking-widest text-gold font-semibold">Print Preview</span>
+
+                    <h3 class="font-serif text-xl text-charcoal">Your Photo Design</h3>
+
+                </div>
+
+
+                <div class="relative bg-white p-3 rounded-2xl shadow-2xl border border-champagne max-w-sm md:max-w-lg w-full">
+
+                    <canvas id="output-canvas" class="w-full h-auto rounded-lg border border-gray-100 shadow-inner block"></canvas>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="w-full lg:w-80 flex flex-col space-y-6 bg-white p-6 rounded-2xl border border-champagne/80 shadow-xl">
+
+                <div class="space-y-3">
+
+                    <div>
+                        <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Choose a Print Border</h4>
+                        <p class="mt-1 text-xs text-gray-500">Pick the frame you like best.</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="changeBorderStyle('classic')" aria-pressed="false" class="border-style-option border border-champagne rounded-xl p-2.5 text-xs font-medium text-charcoal text-center hover:border-gold">
+                            <span class="mx-auto mb-1.5 block h-7 w-11 border-4 border-double border-gold rounded-sm"></span>
+                            <span>Classic Double</span>
+                        </button>
+                        <button type="button" onclick="changeBorderStyle('botanical')" aria-pressed="false" class="border-style-option border border-champagne rounded-xl p-2.5 text-xs font-medium text-charcoal text-center hover:border-gold">
+                            <span class="relative mx-auto mb-1.5 block h-7 w-11 border border-sage rounded-sm">
+                                <span class="absolute left-1 top-1 h-2 w-1.5 -rotate-45 rounded-full bg-sage"></span>
+                                <span class="absolute right-1 top-1 h-2 w-1.5 rotate-45 rounded-full bg-sage"></span>
+                                <span class="absolute bottom-1 left-1 h-2 w-1.5 rotate-45 rounded-full bg-sage"></span>
+                                <span class="absolute bottom-1 right-1 h-2 w-1.5 -rotate-45 rounded-full bg-sage"></span>
+                            </span>
+                            <span>Botanical Corners</span>
+                        </button>
+                        <button type="button" onclick="changeBorderStyle('artDeco')" aria-pressed="false" class="border-style-option border border-champagne rounded-xl p-2.5 text-xs font-medium text-charcoal text-center hover:border-gold">
+                            <span class="relative mx-auto mb-1.5 block h-7 w-11 border border-charcoal rounded-sm">
+                                <span class="absolute left-1 top-1 h-2 w-2 border-l-2 border-t-2 border-charcoal"></span>
+                                <span class="absolute right-1 top-1 h-2 w-2 border-r-2 border-t-2 border-charcoal"></span>
+                                <span class="absolute bottom-1 left-1 h-2 w-2 border-b-2 border-l-2 border-charcoal"></span>
+                                <span class="absolute bottom-1 right-1 h-2 w-2 border-b-2 border-r-2 border-charcoal"></span>
+                            </span>
+                            <span>Art Deco</span>
+                        </button>
+                        <button type="button" onclick="changeBorderStyle('pearl')" aria-pressed="false" class="border-style-option border border-champagne rounded-xl p-2.5 text-xs font-medium text-charcoal text-center hover:border-gold">
+                            <span class="mx-auto mb-1.5 block h-7 w-11 border-2 border-dotted border-roseDust rounded-sm"></span>
+                            <span>Pearl Dots</span>
+                        </button>
+                        <button type="button" onclick="changeBorderStyle('garden')" aria-pressed="false" class="border-style-option border border-champagne rounded-xl p-2.5 text-xs font-medium text-charcoal text-center hover:border-gold">
+                            <span class="relative mx-auto mb-1.5 block h-7 w-11 overflow-hidden rounded-sm border border-sage bg-cream">
+                                <span class="absolute left-1 top-1 h-2 w-2 rounded-full bg-roseDust/70"></span>
+                                <span class="absolute right-1 top-1 h-2 w-2 rounded-full bg-sage"></span>
+                                <span class="absolute bottom-1 left-2 h-1.5 w-1.5 rounded-full bg-gold/80"></span>
+                            </span>
+                            <span>Garden Blooms</span>
+                        </button>
+                    </div>
+
+                </div>
+
+                <div class="space-y-3">
+
+                    <button onclick="triggerPrint()" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-gold to-deepGold text-white font-cinzel font-semibold shadow-md hover:shadow-lg hover:opacity-95 transition flex items-center justify-center space-x-2">
+
+                        <i data-lucide="printer" class="w-5 h-5"></i>
+
+                        <span>Print to SELPHY (4x6)</span>
+
+                    </button>
+
+
+
+                    <button onclick="downloadPhoto()" class="w-full py-3.5 px-4 rounded-xl bg-warmSand border border-champagne text-charcoal font-medium hover:bg-champagne/40 transition flex items-center justify-center space-x-2">
+
+                        <i data-lucide="download" class="w-5 h-5 text-gold"></i>
+
+                        <span>Save Photo</span>
+
+                    </button>
+
+
+
+                    <button onclick="resetToHome()" class="w-full py-3 px-4 rounded-xl border border-gray-200 text-gray-600 font-medium hover:bg-gray-50 transition flex items-center justify-center space-x-2">
+
+                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+
+                        <span>Start New Session</span>
+
+                    </button>
+
+                </div>
+
+
+
+                <div class="bg-warmSand/60 p-3 rounded-xl text-center border border-champagne/40">
+
+                    <p class="text-xs text-gray-500">Auto resetting for next guest in <span id="auto-reset-timer" class="font-bold text-gold">60</span>s</p>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+    </main>
+
+
+
+    <!-- FOOTER -->
+
+    <footer class="w-full py-3 text-center text-xs text-gray-400 bg-cream/60 border-t border-champagne/30 z-20">
+
+        Designed for iPad Kiosk & AirPrint (Canon SELPHY CP1500)
+
+    </footer>
+
+
+
+    <!-- MODAL: RECENT GALLERY -->
+
+    <div id="gallery-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+
+        <div class="bg-white rounded-3xl max-w-3xl w-full max-h-[80vh] flex flex-col p-6 shadow-2xl border border-champagne relative">
+
+            <div class="flex justify-between items-center pb-4 border-b border-champagne/60">
+
+                <div>
+
+                    <h3 class="font-serif text-xl font-semibold text-charcoal">Event Gallery</h3>
+
+                    <p class="text-xs text-gray-500">View or re-print photos captured during this event</p>
+
+                </div>
+
+                <button onclick="toggleGalleryModal()" class="p-2 text-gray-400 hover:text-charcoal">
+
+                    <i data-lucide="x" class="w-5 h-5"></i>
+
+                </button>
+
+            </div>
+
+
+
+            <div id="gallery-grid" class="flex-1 overflow-y-auto my-4 grid grid-cols-2 sm:grid-cols-3 gap-4 p-2">
+
+                <div class="col-span-full text-center py-12 text-gray-400 text-sm">
+
+                    No photos captured yet during this session.
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ADMIN CONFIGURATION DRAWER -->
+
+    <div id="admin-drawer" class="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl border-l border-champagne z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
+
+        <div class="p-6 bg-cream border-b border-champagne flex justify-between items-center">
+
+            <div class="flex items-center space-x-2">
+
+                <i data-lucide="sliders" class="w-5 h-5 text-gold"></i>
+
+                <h3 class="font-serif font-semibold text-lg text-charcoal">Booth Configuration</h3>
+
+            </div>
+
+            <button onclick="closeAdminPanel()" class="p-2 text-gray-400 hover:text-charcoal">
+
+                <i data-lucide="x" class="w-5 h-5"></i>
+
+            </button>
+
+        </div>
+
+
+
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+
+            <div class="space-y-4">
+
+                <h4 class="text-xs font-bold text-gold uppercase tracking-wider">Event Information</h4>
+
+                <div>
+
+                    <label for="cfg-title" class="block text-xs font-medium text-gray-700 mb-1">Event Name or Host</label>
+
+                    <input type="text" id="cfg-title" value="DENNIS & HONG'S WEDDING" placeholder="e.g. Doug's Birthday" class="w-full px-3 py-2 border border-champagne rounded-xl focus:ring-1 focus:ring-gold outline-none text-sm">
+
+                </div>
+
+                <div>
+
+                    <label for="cfg-date" class="block text-xs font-medium text-gray-700 mb-1">Date or Occasion (Optional)</label>
+
+                    <input type="text" id="cfg-date" value="MAY 20, 2028" placeholder="e.g. OCTOBER 24, 2026" class="w-full px-3 py-2 border border-champagne rounded-xl focus:ring-1 focus:ring-gold outline-none text-sm">
+
+                </div>
+
+                <div>
+
+                    <label for="cfg-subtitle" class="block text-xs font-medium text-gray-700 mb-1">Footer Message / Hashtag (Optional)</label>
+
+                    <input type="text" id="cfg-subtitle" value="Thank you for joining us!" placeholder="e.g. #Wedding2028" class="w-full px-3 py-2 border border-champagne rounded-xl focus:ring-1 focus:ring-gold outline-none text-sm">
+
+                </div>
+
+                <div class="space-y-2">
+
+                    <label for="cfg-logo" class="block text-xs font-medium text-gray-700 mb-1">Event Logo (Optional)</label>
+
+                    <input type="file" id="cfg-logo" accept="image/*" onchange="handleLogoUpload(event)" class="w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-warmSand file:px-3 file:py-2 file:text-sm file:font-medium file:text-charcoal hover:file:bg-champagne/50">
+
+                    <div id="logo-preview-container" class="hidden items-center gap-3 rounded-xl border border-champagne bg-warmSand/40 p-3">
+
+                        <img id="logo-preview" alt="Event logo preview" class="max-h-16 max-w-40 object-contain rounded">
+
+                        <button type="button" onclick="removeEventLogo()" class="ml-auto rounded-lg border border-champagne bg-white px-3 py-2 text-xs font-medium text-charcoal hover:bg-warmSand">Remove logo</button>
+
+                    </div>
+
+                    <p id="logo-status" class="text-xs text-gray-500" role="status">PNG, JPG, SVG, or another browser-supported image. Maximum 5 MB.</p>
+
+                </div>
+
+            </div>
+
+            <div class="space-y-4 border-t border-champagne/60 pt-4">
+
+                <h4 class="text-xs font-bold text-gold uppercase tracking-wider">Print Design</h4>
+
+                <div class="space-y-3">
+
+                    <label class="block text-xs font-medium text-gray-700">Overlay Frame Theme</label>
+
+                    <div class="grid grid-cols-2 gap-2">
+
+                        <button type="button" data-theme="gold" aria-pressed="true" onclick="changeOverlayTheme('gold')" class="overlay-theme-option p-2.5 rounded-xl border border-champagne text-xs font-medium text-center hover:border-gold focus:border-gold focus:bg-warmSand flex flex-col items-center space-y-1">
+                            <span class="w-4 h-4 rounded-full inline-block" style="background-color: #D4AF37"></span>
+                            <span>Elegance Gold</span>
+                        </button>
+
+                        <button type="button" data-theme="sage" aria-pressed="false" onclick="changeOverlayTheme('sage')" class="overlay-theme-option p-2.5 rounded-xl border border-champagne text-xs font-medium text-center hover:border-gold focus:border-gold focus:bg-warmSand flex flex-col items-center space-y-1">
+                            <span class="w-4 h-4 rounded-full inline-block" style="background-color: #8A9A86"></span>
+                            <span>Botanical Sage</span>
+                        </button>
+
+                        <button type="button" data-theme="minimal" aria-pressed="false" onclick="changeOverlayTheme('minimal')" class="overlay-theme-option p-2.5 rounded-xl border border-champagne text-xs font-medium text-center hover:border-gold focus:border-gold focus:bg-warmSand flex flex-col items-center space-y-1">
+                            <span class="w-4 h-4 rounded-full inline-block" style="background-color: #2C2A29"></span>
+                            <span>Minimal Modern</span>
+                        </button>
+
+                        <button type="button" data-theme="rose" aria-pressed="false" onclick="changeOverlayTheme('rose')" class="overlay-theme-option p-2.5 rounded-xl border border-champagne text-xs font-medium text-center hover:border-gold focus:border-gold focus:bg-warmSand flex flex-col items-center space-y-1">
+                            <span class="w-4 h-4 rounded-full inline-block" style="background-color: #B76E79"></span>
+                            <span>Rose Romance</span>
+                        </button>
+
+                        <button type="button" data-theme="ocean" aria-pressed="false" onclick="changeOverlayTheme('ocean')" class="overlay-theme-option p-2.5 rounded-xl border border-champagne text-xs font-medium text-center hover:border-gold focus:border-gold focus:bg-warmSand flex flex-col items-center space-y-1">
+                            <span class="w-4 h-4 rounded-full inline-block" style="background-color: #397C8A"></span>
+                            <span>Coastal Blue</span>
+                        </button>
+
+                        <button type="button" data-theme="lavender" aria-pressed="false" onclick="changeOverlayTheme('lavender')" class="overlay-theme-option p-2.5 rounded-xl border border-champagne text-xs font-medium text-center hover:border-gold focus:border-gold focus:bg-warmSand flex flex-col items-center space-y-1">
+                            <span class="w-4 h-4 rounded-full inline-block" style="background-color: #8D79A8"></span>
+                            <span>Lavender</span>
+                        </button>
+
+                        <button type="button" data-theme="terracotta" aria-pressed="false" onclick="changeOverlayTheme('terracotta')" class="overlay-theme-option p-2.5 rounded-xl border border-champagne text-xs font-medium text-center hover:border-gold focus:border-gold focus:bg-warmSand flex flex-col items-center space-y-1">
+                            <span class="w-4 h-4 rounded-full inline-block" style="background-color: #B86645"></span>
+                            <span>Terracotta</span>
+                        </button>
+
+                        <button type="button" data-theme="midnight" aria-pressed="false" onclick="changeOverlayTheme('midnight')" class="overlay-theme-option p-2.5 rounded-xl border border-champagne text-xs font-medium text-center hover:border-gold focus:border-gold focus:bg-warmSand flex flex-col items-center space-y-1">
+                            <span class="w-4 h-4 rounded-full inline-block" style="background-color: #30435C"></span>
+                            <span>Midnight</span>
+                        </button>
+
+                    </div>
+
+                    <div class="space-y-2 rounded-xl border border-champagne/70 bg-warmSand/40 p-3">
+                        <p class="text-xs font-semibold text-charcoal">Customize colors</p>
+                        <label for="custom-bg-color" class="flex items-center justify-between gap-3 text-xs text-gray-600">
+                            <span>Background</span>
+                            <input id="custom-bg-color" type="color" value="#FDFBF7" aria-label="Custom background color" oninput="applyCustomOverlayColors()" class="h-9 w-12 cursor-pointer rounded border border-champagne bg-white p-1">
+                        </label>
+                        <label for="custom-accent-color" class="flex items-center justify-between gap-3 text-xs text-gray-600">
+                            <span>Frame & accents</span>
+                            <input id="custom-accent-color" type="color" value="#D4AF37" aria-label="Custom frame and accent color" oninput="applyCustomOverlayColors()" class="h-9 w-12 cursor-pointer rounded border border-champagne bg-white p-1">
+                        </label>
+                        <label for="custom-text-color" class="flex items-center justify-between gap-3 text-xs text-gray-600">
+                            <span>Text</span>
+                            <input id="custom-text-color" type="color" value="#2C2A29" aria-label="Custom text color" oninput="applyCustomOverlayColors()" class="h-9 w-12 cursor-pointer rounded border border-champagne bg-white p-1">
+                        </label>
+                        <p id="custom-theme-status" class="text-xs text-gray-500" role="status">Choose a palette or customize its colors.</p>
+                    </div>
+
+                </div>
+
+                <div class="space-y-3">
+
+                    <label class="block text-xs font-medium text-gray-700">Decorative Border</label>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="changeBorderStyle('classic')" aria-pressed="true" class="border-style-option border-2 border-gold bg-warmSand rounded-xl p-3 text-xs font-medium text-charcoal text-center">
+                            <span class="mx-auto mb-2 block h-8 w-12 border-4 border-double border-gold rounded-sm"></span>
+                            <span>Classic Double</span>
+                        </button>
+                        <button type="button" onclick="changeBorderStyle('botanical')" aria-pressed="false" class="border-style-option border border-champagne rounded-xl p-3 text-xs font-medium text-charcoal text-center hover:border-gold">
+                            <span class="relative mx-auto mb-2 block h-8 w-12 border border-sage rounded-sm">
+                                <span class="absolute left-1 top-1 h-2 w-1.5 -rotate-45 rounded-full bg-sage"></span>
+                                <span class="absolute right-1 top-1 h-2 w-1.5 rotate-45 rounded-full bg-sage"></span>
+                                <span class="absolute bottom-1 left-1 h-2 w-1.5 rotate-45 rounded-full bg-sage"></span>
+                                <span class="absolute bottom-1 right-1 h-2 w-1.5 -rotate-45 rounded-full bg-sage"></span>
+                            </span>
+                            <span>Botanical Corners</span>
+                        </button>
+                        <button type="button" onclick="changeBorderStyle('artDeco')" aria-pressed="false" class="border-style-option border border-champagne rounded-xl p-3 text-xs font-medium text-charcoal text-center hover:border-gold">
+                            <span class="relative mx-auto mb-2 block h-8 w-12 border border-charcoal rounded-sm">
+                                <span class="absolute left-1 top-1 h-2 w-2 border-l-2 border-t-2 border-charcoal"></span>
+                                <span class="absolute right-1 top-1 h-2 w-2 border-r-2 border-t-2 border-charcoal"></span>
+                                <span class="absolute bottom-1 left-1 h-2 w-2 border-b-2 border-l-2 border-charcoal"></span>
+                                <span class="absolute bottom-1 right-1 h-2 w-2 border-b-2 border-r-2 border-charcoal"></span>
+                            </span>
+                            <span>Art Deco</span>
+                        </button>
+                        <button type="button" onclick="changeBorderStyle('pearl')" aria-pressed="false" class="border-style-option border border-champagne rounded-xl p-3 text-xs font-medium text-charcoal text-center hover:border-gold">
+                            <span class="mx-auto mb-2 block h-8 w-12 border-2 border-dotted border-roseDust rounded-sm"></span>
+                            <span>Pearl Dots</span>
+                        </button>
+                        <button type="button" onclick="changeBorderStyle('garden')" aria-pressed="false" class="border-style-option border border-champagne rounded-xl p-3 text-xs font-medium text-charcoal text-center hover:border-gold">
+                            <span class="relative mx-auto mb-2 block h-8 w-12 overflow-hidden rounded-sm border border-sage bg-cream">
+                                <span class="absolute left-1 top-1 h-2 w-2 rounded-full bg-roseDust/70"></span>
+                                <span class="absolute right-1 top-1 h-2 w-2 rounded-full bg-sage"></span>
+                                <span class="absolute bottom-1 left-2 h-1.5 w-1.5 rounded-full bg-gold/80"></span>
+                            </span>
+                            <span>Garden Blooms</span>
+                        </button>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="space-y-4 border-t border-champagne/60 pt-4">
+
+                <h4 class="text-xs font-bold text-gold uppercase tracking-wider">Capture Settings</h4>
+
+                <div class="space-y-2">
+
+                    <label for="cfg-camera" class="block text-xs font-medium text-gray-700 mb-1">Camera</label>
+
+                    <div class="flex gap-2">
+
+                        <select id="cfg-camera" class="min-w-0 flex-1 px-3 py-2 border border-champagne rounded-xl focus:ring-1 focus:ring-gold outline-none text-sm bg-white">
+
+                            <option value="">Default camera</option>
+
+                        </select>
+
+                        <button type="button" onclick="refreshCameraList()" class="shrink-0 px-3 py-2 border border-champagne rounded-xl text-sm font-medium text-charcoal hover:bg-warmSand transition">Find cameras</button>
+
+                    </div>
+
+                    <p id="camera-status" class="text-xs text-gray-500" role="status">Choose a camera, then save settings. Connect cameras before searching.</p>
+
+                    <p class="text-xs text-gray-500">Works with cameras your browser recognizes as a video input. Camera access requires HTTPS or localhost.</p>
+
+                </div>
+
+                <div>
+
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Countdown Delay (Seconds)</label>
+
+                    <select id="cfg-countdown" class="w-full px-3 py-2 border border-champagne rounded-xl focus:ring-1 focus:ring-gold outline-none text-sm bg-white">
+
+                        <option value="3" selected>3 Seconds</option>
+
+                        <option value="5">5 Seconds</option>
+
+                        <option value="10">10 Seconds</option>
+
+                    </select>
+
+                </div>
+
+                <div>
+
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Auto-Reset Delay (Seconds)</label>
+
+                    <select id="cfg-reset" class="w-full px-3 py-2 border border-champagne rounded-xl focus:ring-1 focus:ring-gold outline-none text-sm bg-white">
+
+                        <option value="30">30 Seconds</option>
+
+                        <option value="60" selected>60 Seconds</option>
+
+                        <option value="90">90 Seconds</option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="p-4 bg-warmSand/60 rounded-2xl border border-champagne/50 text-xs text-gray-600 space-y-1">
+
+                <p class="font-semibold text-charcoal">Canon SELPHY Printing Note:</p>
+
+                <p>Ensure your SELPHY CP1500 is connected to the same Wi-Fi network as this iPad. Tapping 'Print' will trigger standard iPad AirPrint popup formatted for 4x6 paper.</p>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="p-6 bg-cream border-t border-champagne">
+
+            <button onclick="saveAdminSettings()" class="w-full py-3 bg-gold text-white font-medium rounded-xl hover:bg-deepGold transition shadow-md">
+
+                Save & Apply Settings
+
+            </button>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- HIDDEN PRINT CONTAINER -->
+
+    <div id="print-area"></div>
+
+
+
+    <script src="app.js"></script>
+
+</body>
+
+</html>
