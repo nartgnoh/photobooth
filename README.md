@@ -12,7 +12,7 @@ A browser-based photo booth for events. Use a phone, tablet, or computer camera 
 - Booth configuration is saved in the current browser on the current device, including event details, design choices, and uploaded logo/background images; settings can be restored to their defaults from the configuration panel.
 - Photo layouts and decorative frames are scaled slightly inward from the edge, while the selected background continues to the edge, helping keep important content inside the SELPHY's workable print area when AirPrint crops a little.
 - Each photo strip is additionally shifted 2 mm inward from the outer side of the sheet, without changing the strips' size or aspect ratio.
-- Download photos, print from the browser, and revisit recent captures in the session gallery.
+- Download photos, print from the browser, and revisit up to 12 recent captures in the on-device gallery, even after a page refresh.
 - Installable web app support for using the booth from a Home Screen.
 
 ## Run locally
@@ -33,11 +33,11 @@ The page loads Tailwind CSS, Lucide icons, Canvas Confetti, and Google Fonts fro
 
 ## Use at an event
 
-1. Open **Event Settings** and configure the event name, calendar date, footer message, a separate font for each text field, optional logo, print background (theme color, Water Lilies, or an image file from the device), print theme, camera, countdown, and automatic reset. Booth settings are saved in that browser on that device and remain after a refresh or guest reset. Use **Reset Booth Configuration** to restore default settings; this does not clear recent photos from the current session.
+1. Open **Event Settings** and configure the event name, calendar date, footer message, a separate font for each text field, optional logo, print background (theme color, Water Lilies, or an image file from the device), print theme, camera, countdown, and automatic reset. Booth settings are saved in that browser on that device and remain after a refresh or guest reset. Use **Reset Booth Configuration** to restore default settings; this does not clear saved recent photos.
 2. Select a photo layout and allow camera access.
 3. Frame the shot and tap the shutter. Multi-photo layouts capture the photos in sequence.
 4. Review the result. Download it, or choose **Print / Share Photo**. On iPad, choose **Print** from the share sheet, then select the Canon SELPHY.
-5. Use the gallery to view or reprint recent captures from the current session.
+5. Use the gallery to view or reprint the 12 most recent captures saved on this device.
 
 For iPad use, serve or deploy the app over HTTPS, open it in Safari, and use **Share → Add to Home Screen** to make the booth available as an app.
 

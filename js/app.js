@@ -2,6 +2,8 @@ const EVENT_TEXT_STORAGE_KEY = 'photobooth-event-text-v1';
 const BOOTH_SETTINGS_DATABASE = 'photobooth-settings';
 const BOOTH_SETTINGS_STORE = 'settings';
 const BOOTH_SETTINGS_KEY = 'current';
+const BOOTH_GALLERY_STORE = 'recent-gallery';
+const BOOTH_GALLERY_KEY = 'photos';
 const COUNTDOWN_TICK_MS = 1200;
 const READY_PROMPT_MS = COUNTDOWN_TICK_MS;
 const CAPTURED_PHOTO_PREVIEW_MS = 1000;
@@ -88,6 +90,8 @@ const state = {
 
             recentGallery: [],
 
+            galleryStorageError: '',
+
             autoResetTimer: null,
 
             resetCountdownRemaining: 60,
@@ -161,6 +165,7 @@ const state = {
             lucide.createIcons();
 
             await loadPersistentBoothSettings();
+            await loadRecentGallery();
             document.getElementById('cfg-title').value = state.eventData.title;
             syncEventDateInputs();
             document.getElementById('cfg-subtitle').value = state.eventData.subtitle;
@@ -182,9 +187,15 @@ const state = {
             if (boothSettingsDatabasePromise) return boothSettingsDatabasePromise;
 
             boothSettingsDatabasePromise = new Promise((resolve, reject) => {
-                const request = indexedDB.open(BOOTH_SETTINGS_DATABASE, 1);
+                const request = indexedDB.open(BOOTH_SETTINGS_DATABASE, 2);
                 request.onupgradeneeded = () => {
-                    request.result.createObjectStore(BOOTH_SETTINGS_STORE);
+                    const database = request.result;
+                    if (!database.objectStoreNames.contains(BOOTH_SETTINGS_STORE)) {
+                        database.createObjectStore(BOOTH_SETTINGS_STORE);
+                    }
+                    if (!database.objectStoreNames.contains(BOOTH_GALLERY_STORE)) {
+                        database.createObjectStore(BOOTH_GALLERY_STORE);
+                    }
                 };
                 request.onsuccess = () => {
                     const database = request.result;
@@ -633,12 +644,29 @@ const state = {
             const AudioContextClass = window.AudioContext || window.webkitAudioContext;
             if (!AudioContextClass) return;
 
-            if (!state.audioContext) {
+            if (!state.audioContext ||
+                state.audioContext.state === 'closed' ||
+                state.audioContext.state === 'interrupted') {
                 state.audioContext = new AudioContextClass();
             }
 
-            if (state.audioContext.state === 'suspended') {
-                await state.audioContext.resume();
+            if (state.audioContext.state !== 'running') {
+                try {
+                    await state.audioContext.resume();
+                } catch (error) {
+                    const interruptedContext = state.audioContext;
+                    state.audioContext = new AudioContextClass();
+                    try {
+                        await state.audioContext.resume();
+                    } catch (retryError) {
+                        state.audioContext = interruptedContext;
+                        throw retryError;
+                    }
+                }
+            }
+
+            if (state.audioContext.state !== 'running') {
+                throw new Error(`Audio context did not start (state: ${state.audioContext.state}).`);
             }
 
         }
@@ -964,7 +992,7 @@ const state = {
                 }
                 ctx.restore();
                 if (addToGallery) {
-                    saveToRecentGallery(canvas.toDataURL());
+                    saveToRecentGallery(canvas.toDataURL('image/jpeg', 0.92));
                 }
             };
 
@@ -1072,9 +1100,9 @@ const state = {
 
                 ctx.font = "700 16px 'Montserrat', sans-serif";
 
-                ctx.fillText("CUT", W / 2, 5);
+                ctx.fillText("CUT", W / 2, 10);
 
-                ctx.fillText("CUT", W / 2, H - 5);
+                ctx.fillText("CUT", W / 2, H - 10);
 
                 return;
             }
@@ -1852,12 +1880,51 @@ const state = {
             link.click();
         }
 
-        function saveToRecentGallery(dataUrl) {
+        async function loadRecentGallery() {
+            try {
+                const database = await openBoothSettingsDatabase();
+                const photos = await new Promise((resolve, reject) => {
+                    const transaction = database.transaction(BOOTH_GALLERY_STORE, 'readonly');
+                    const request = transaction.objectStore(BOOTH_GALLERY_STORE).get(BOOTH_GALLERY_KEY);
+                    request.onsuccess = () => resolve(request.result || []);
+                    request.onerror = () => reject(request.error || new Error('Unable to read recent photos.'));
+                    transaction.onabort = () => reject(transaction.error || new Error('Reading recent photos was interrupted.'));
+                });
 
+                if (!Array.isArray(photos) || photos.some(photo => typeof photo !== 'string')) {
+                    throw new Error('Saved recent photos have an invalid format.');
+                }
+
+                state.recentGallery = photos.slice(0, 12);
+                state.galleryStorageError = '';
+                renderGalleryGrid();
+            } catch (error) {
+                state.galleryStorageError = 'Recent photos could not be loaded from this device.';
+                console.error('Unable to load recent photos.', error);
+                renderGalleryGrid();
+            }
+        }
+
+        async function saveToRecentGallery(dataUrl) {
             state.recentGallery.unshift(dataUrl);
+            state.recentGallery = state.recentGallery.slice(0, 12);
+            state.galleryStorageError = '';
+            renderGalleryGrid();
 
-            if (state.recentGallery.length > 12) state.recentGallery.pop();
-
+            try {
+                const database = await openBoothSettingsDatabase();
+                await new Promise((resolve, reject) => {
+                    const transaction = database.transaction(BOOTH_GALLERY_STORE, 'readwrite');
+                    transaction.objectStore(BOOTH_GALLERY_STORE).put(state.recentGallery, BOOTH_GALLERY_KEY);
+                    transaction.oncomplete = resolve;
+                    transaction.onerror = () => reject(transaction.error || new Error('Unable to save recent photos.'));
+                    transaction.onabort = () => reject(transaction.error || new Error('Saving recent photos was interrupted.'));
+                });
+            } catch (error) {
+                state.galleryStorageError = 'Recent photos are visible for now but could not be saved on this device.';
+                console.error('Unable to save recent photos.', error);
+                renderGalleryGrid();
+            }
         }
 
         function toggleGalleryModal() {
@@ -1881,13 +1948,12 @@ const state = {
         function renderGalleryGrid() {
 
             const grid = document.getElementById('gallery-grid');
+            document.getElementById('gallery-status').textContent = state.galleryStorageError;
 
             grid.innerHTML = "";
 
             if (state.recentGallery.length === 0) {
-
-                grid.innerHTML = `<div class="col-span-full text-center py-12 text-gray-400 text-sm">No photos captured yet during this session.</div>`;
-
+                grid.innerHTML = `<div class="col-span-full text-center py-12 text-gray-400 text-sm">${state.galleryStorageError || 'No recent photos saved on this device.'}</div>`;
                 return;
 
             }
