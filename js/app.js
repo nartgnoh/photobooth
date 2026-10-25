@@ -1118,7 +1118,7 @@ const state = {
             }
 
             if (template === 'grid4') {
-                const featuredPhotoX = 112;
+                const featuredPhotoX = 106;
                 const featuredPhotoWidth = 890;
                 const detailsWidth = 630;
                 const detailsX = (featuredPhotoX + featuredPhotoWidth + W - 30 - detailsWidth) / 2 - 24;
@@ -1133,7 +1133,7 @@ const state = {
                 const rowStartX = (W - totalBottomRowWidth) / 2 + 8;
                 [1, 2, 3].forEach((imageIndex, index) => {
                     const photoX = rowStartX + index * (photoWidth + rowGap);
-                    drawPhotoFrame(ctx, images[imageIndex], photoX - 8, photoY, photoWidth, photoHeight, accentColor, 6);
+                    drawPhotoFrame(ctx, images[imageIndex], photoX - 14, photoY, photoWidth, photoHeight, accentColor, 6);
                 });
             }
 
