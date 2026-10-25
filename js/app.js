@@ -85,7 +85,7 @@ const state = {
 
             resetCountdownRemaining: 60,
 
-            autoResetPaused: false
+            autoResetPauseReasons: new Set()
 
         };
 
@@ -269,7 +269,7 @@ const state = {
 
                 clearInterval(state.autoResetTimer);
                 state.autoResetTimer = null;
-                state.autoResetPaused = false;
+                state.autoResetPauseReasons.clear();
 
             }
 
@@ -1552,32 +1552,38 @@ const state = {
 
 
         function openBrowserPrintDialog(dataUrl) {
-            const printArea = document.getElementById('print-area');
-            let pageStyle = document.getElementById('print-page-style');
-            if (!pageStyle) {
-                pageStyle = document.createElement('style');
-                pageStyle.id = 'print-page-style';
-                document.head.appendChild(pageStyle);
-            }
+            return new Promise((resolve, reject) => {
+                const printArea = document.getElementById('print-area');
+                let pageStyle = document.getElementById('print-page-style');
+                if (!pageStyle) {
+                    pageStyle = document.createElement('style');
+                    pageStyle.id = 'print-page-style';
+                    document.head.appendChild(pageStyle);
+                }
 
-            const image = new Image();
-            image.alt = 'Photo Booth Print';
-            image.onload = () => {
-                const isLandscape = image.naturalWidth > image.naturalHeight;
+                const image = new Image();
+                image.alt = 'Photo Booth Print';
+                image.onload = () => {
+                    const isLandscape = image.naturalWidth > image.naturalHeight;
 
-                pageStyle.textContent = '@page { size: 4in 6in; margin: 0; }';
-                printArea.style.width = '4in';
-                printArea.style.height = '6in';
-                image.classList.toggle('print-landscape', isLandscape);
-                printArea.replaceChildren(image);
+                    pageStyle.textContent = '@page { size: 4in 6in; margin: 0; }';
+                    printArea.style.width = '4in';
+                    printArea.style.height = '6in';
+                    image.classList.toggle('print-landscape', isLandscape);
+                    printArea.replaceChildren(image);
 
-                window.print();
-            };
-            image.onerror = () => {
-                console.error('Unable to load the photo for printing.');
-            };
-            image.src = dataUrl;
-
+                    try {
+                        window.print();
+                        resolve();
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                image.onerror = () => {
+                    reject(new Error('Unable to load the photo for printing.'));
+                };
+                image.src = dataUrl;
+            });
         }
 
         function photoDataUrlToFile(dataUrl) {
@@ -1597,26 +1603,38 @@ const state = {
         }
 
         async function printPhoto(dataUrl) {
-            if (typeof File !== 'undefined' && navigator.share && navigator.canShare) {
+            const shouldPauseTimer = pauseAutoReset('print-share');
+            try {
+                if (typeof File !== 'undefined' && navigator.share && navigator.canShare) {
+                    try {
+                        const file = photoDataUrlToFile(dataUrl);
+                        if (navigator.canShare({ files: [file] })) {
+                            await navigator.share({
+                                files: [file],
+                                title: 'Photo Booth'
+                            });
+                            return;
+                        }
+                    } catch (error) {
+                        if (error instanceof DOMException && error.name === 'AbortError') {
+                            return;
+                        }
+                        console.error('Could not share the photo:', error);
+                        alert('Could not open the iPad share sheet. Opening the browser print dialog instead.');
+                    }
+                }
+
                 try {
-                    const file = photoDataUrlToFile(dataUrl);
-                    if (navigator.canShare({ files: [file] })) {
-                        await navigator.share({
-                            files: [file],
-                            title: 'Photo Booth'
-                        });
-                        return;
-                    }
+                    await openBrowserPrintDialog(dataUrl);
                 } catch (error) {
-                    if (error instanceof DOMException && error.name === 'AbortError') {
-                        return;
-                    }
-                    console.error('Could not share the photo:', error);
-                    alert('Could not open the iPad share sheet. Opening the browser print dialog instead.');
+                    console.error('Could not open the browser print dialog:', error);
+                    alert('Could not open the browser print dialog.');
+                }
+            } finally {
+                if (shouldPauseTimer) {
+                    resumeAutoReset('print-share');
                 }
             }
-
-            openBrowserPrintDialog(dataUrl);
         }
 
         function triggerPrint() {
@@ -1711,7 +1729,7 @@ const state = {
             clearInterval(state.autoResetTimer);
 
             state.resetCountdownRemaining = parseInt(state.eventData.resetSeconds);
-            state.autoResetPaused = false;
+            state.autoResetPauseReasons.clear();
 
             const timerDisplay = document.getElementById('auto-reset-timer');
 
@@ -1722,7 +1740,7 @@ const state = {
         }
 
         function resumeAutoResetTimer() {
-            if (state.currentScreen !== 'review' || state.autoResetTimer !== null) return;
+            if (state.currentScreen !== 'review' || state.autoResetTimer !== null || state.autoResetPauseReasons.size > 0) return;
 
             const timerDisplay = document.getElementById('auto-reset-timer');
             state.autoResetTimer = setInterval(() => {
@@ -1735,7 +1753,7 @@ const state = {
 
                     clearInterval(state.autoResetTimer);
                     state.autoResetTimer = null;
-                    state.autoResetPaused = false;
+                    state.autoResetPauseReasons.clear();
 
                     resetToHome();
 
@@ -1749,7 +1767,7 @@ const state = {
 
             clearInterval(state.autoResetTimer);
             state.autoResetTimer = null;
-            state.autoResetPaused = false;
+            state.autoResetPauseReasons.clear();
 
             state.capturedImages = [];
 
@@ -1757,12 +1775,22 @@ const state = {
 
         }
 
+        function pauseAutoReset(reason) {
+            if (state.currentScreen !== 'review') return false;
+
+            state.autoResetPauseReasons.add(reason);
+            clearInterval(state.autoResetTimer);
+            state.autoResetTimer = null;
+            return true;
+        }
+
+        function resumeAutoReset(reason) {
+            state.autoResetPauseReasons.delete(reason);
+            resumeAutoResetTimer();
+        }
+
         function openAdminPanel() {
-            if (state.currentScreen === 'review' && state.autoResetTimer !== null) {
-                clearInterval(state.autoResetTimer);
-                state.autoResetTimer = null;
-                state.autoResetPaused = true;
-            }
+            pauseAutoReset('admin');
             DOM.adminDrawer.classList.remove('translate-x-full');
             DOM.cameraSelect.value = state.selectedCameraId;
             syncEventFontInputs();
@@ -1783,10 +1811,7 @@ const state = {
         function closeAdminPanel() {
 
             DOM.adminDrawer.classList.add('translate-x-full');
-            if (state.autoResetPaused) {
-                state.autoResetPaused = false;
-                resumeAutoResetTimer();
-            }
+            resumeAutoReset('admin');
 
         }
 
