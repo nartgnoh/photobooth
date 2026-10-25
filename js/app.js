@@ -982,13 +982,23 @@ const state = {
             const drawCanvas = (logoImage = null) => {
                 const contentWidth = W * PRINT_CONTENT_SCALE;
                 const contentHeight = H * PRINT_CONTENT_SCALE;
+                const frameInset = 18;
+
 
                 ctx.save();
                 ctx.translate((W - contentWidth) / 2, (H - contentHeight) / 2);
                 ctx.scale(PRINT_CONTENT_SCALE, PRINT_CONTENT_SCALE);
                 drawPhotosAndOverlay(ctx, W, H, loadedImages, fontColor, accentColor, bgColor, logoImage, borderStyle);
                 if (state.selectedTemplate !== 'strip2') {
-                    PhotoBoothBorders.drawDecorativeFrame(ctx, 30, 30, W - 60, H - 60, accentColor, borderStyle);
+                    PhotoBoothBorders.drawDecorativeFrame(
+                        ctx,
+                        30 + frameInset / 2,
+                        30 + frameInset / 2,
+                        W - 60 - frameInset,
+                        H - 60 - frameInset,
+                        accentColor,
+                        borderStyle
+                    );
                 }
                 ctx.restore();
                 if (addToGallery) {
@@ -1031,8 +1041,7 @@ const state = {
         function drawPhotosAndOverlay(ctx, W, H, images, fontColor, accentColor, bgColor, logoImage = null, borderStyle = state.borderStyle) {
             const template = state.selectedTemplate;
             if (template === 'single') {
-                const printInsetPx = 20;
-                drawPhotoFrame(ctx, images[0], 220, 85, 1360 - printInsetPx, 765, accentColor, 7);
+                drawPhotoFrame(ctx, images[0], 220, 100, 1340, 765, accentColor, 7);
                 drawSingleEventCaption(ctx, fontColor, accentColor, W);
                 return;
             }
@@ -1109,8 +1118,7 @@ const state = {
             }
 
             if (template === 'grid4') {
-                const printInsetPx = 20;
-                const featuredPhotoX = 94;
+                const featuredPhotoX = 112;
                 const featuredPhotoWidth = 890;
                 const detailsWidth = 630;
                 const detailsX = (featuredPhotoX + featuredPhotoWidth + W - 30 - detailsWidth) / 2 - 10;
@@ -1120,10 +1128,12 @@ const state = {
                 const photoY = 760;
                 const photoWidth = 500;
                 const photoHeight = 320;
-                const photoGap = (W - 3 * photoWidth - printInsetPx) / 4;
+                const rowGap = 40;
+                const totalBottomRowWidth = photoWidth * 3 + rowGap * 2;
+                const rowStartX = (W - totalBottomRowWidth) / 2 + 8;
                 [1, 2, 3].forEach((imageIndex, index) => {
-                    const photoX = photoGap + index * (photoWidth + photoGap) - 10;
-                    drawPhotoFrame(ctx, images[imageIndex], photoX, photoY, photoWidth, photoHeight, accentColor, 6);
+                    const photoX = rowStartX + index * (photoWidth + rowGap);
+                    drawPhotoFrame(ctx, images[imageIndex], photoX - 8, photoY, photoWidth, photoHeight, accentColor, 6);
                 });
             }
 
