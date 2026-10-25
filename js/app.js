@@ -1,4 +1,7 @@
 const EVENT_TEXT_STORAGE_KEY = 'photobooth-event-text-v1';
+const COUNTDOWN_TICK_MS = 1200;
+const READY_PROMPT_MS = COUNTDOWN_TICK_MS;
+const CAPTURED_PHOTO_PREVIEW_MS = 1000;
 
 const EVENT_FONT_OPTIONS = [
     { value: 'Alex Brush', label: 'Alex Brush' },
@@ -62,7 +65,7 @@ const state = {
 
             captureCancelled: false,
 
-            countdownInterval: null,
+            countdownTimeout: null,
 
             countdownResolve: null,
 
@@ -80,7 +83,9 @@ const state = {
 
             autoResetTimer: null,
 
-            resetCountdownRemaining: 60
+            resetCountdownRemaining: 60,
+
+            autoResetPaused: false
 
         };
 
@@ -113,6 +118,12 @@ const state = {
             logoStatus: document.getElementById('logo-status'),
 
             canvas: document.getElementById('output-canvas'),
+
+            capturePreview: document.querySelector('.capture-preview-frame'),
+
+            captureControls: document.querySelector('.capture-controls'),
+
+            capturedPhotoPreview: document.getElementById('captured-photo-preview'),
 
             printBackgroundImage: document.getElementById('water-lilies-background-image'),
 
@@ -153,6 +164,10 @@ const state = {
             PhotoBoothBorders.renderOptions('settings-border-options', 'settings');
             syncBorderStyleOptions();
             updateHeaderDisplay();
+            window.addEventListener('resize', updateCapturePreviewSize);
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', updateCapturePreviewSize);
+            }
 
         });
 
@@ -226,6 +241,7 @@ const state = {
 
             state.currentScreen = screenName;
             DOM.main.classList.toggle('review-screen-active', screenName === 'review');
+            DOM.main.classList.toggle('capture-screen-active', screenName === 'capture');
 
             Object.keys(DOM.screens).forEach(key => {
 
@@ -252,9 +268,28 @@ const state = {
             if (screenName !== 'review') {
 
                 clearInterval(state.autoResetTimer);
+                state.autoResetTimer = null;
+                state.autoResetPaused = false;
 
             }
 
+            if (screenName === 'capture') {
+                updateCapturePreviewSize();
+            }
+
+        }
+
+        function updateCapturePreviewSize() {
+            if (state.currentScreen !== 'capture') return;
+
+            const section = DOM.screens.capture;
+            const availableHeight = section.clientHeight -
+                DOM.captureControls.offsetHeight -
+                (parseFloat(getComputedStyle(section).rowGap) || 0);
+            const width = Math.max(0, Math.min(section.clientWidth, 672, availableHeight * 4 / 3));
+
+            DOM.capturePreview.style.width = `${width}px`;
+            DOM.capturePreview.style.height = `${width * 3 / 4}px`;
         }
 
         async function selectTemplate(templateType) {
@@ -418,19 +453,40 @@ const state = {
             if (!ctx || ctx.state !== 'running') return;
 
             const now = ctx.currentTime;
-            const duration = 0.16;
+            const duration = 0.12;
             const click = ctx.createOscillator();
             const clickGain = ctx.createGain();
 
-            click.type = 'sine';
-            click.frequency.setValueAtTime(880, now);
-            click.frequency.exponentialRampToValueAtTime(660, now + duration);
-            clickGain.gain.setValueAtTime(0.07, now);
+            click.type = 'triangle';
+            click.frequency.setValueAtTime(1200, now);
+            click.frequency.exponentialRampToValueAtTime(420, now + duration);
+            clickGain.gain.setValueAtTime(0.18, now);
             clickGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
             click.connect(clickGain);
             clickGain.connect(ctx.destination);
             click.start(now);
             click.stop(now + duration);
+
+            const noiseDuration = 0.08;
+            const noiseBuffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * noiseDuration), ctx.sampleRate);
+            const noiseData = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < noiseData.length; i++) {
+                noiseData[i] = Math.random() * 2 - 1;
+            }
+
+            const noise = ctx.createBufferSource();
+            const filter = ctx.createBiquadFilter();
+            const noiseGain = ctx.createGain();
+            noise.buffer = noiseBuffer;
+            filter.type = 'highpass';
+            filter.frequency.setValueAtTime(900, now);
+            noiseGain.gain.setValueAtTime(0.1, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + noiseDuration);
+            noise.connect(filter);
+            filter.connect(noiseGain);
+            noiseGain.connect(ctx.destination);
+            noise.start(now);
+            noise.stop(now + noiseDuration);
 
         }
 
@@ -466,6 +522,10 @@ const state = {
 
                 DOM.sequenceIndicator.textContent = `Photo ${i + 1} of ${photoCount}`;
 
+                await runReadyPrompt();
+
+                if (state.captureCancelled) return;
+
                 await runCountdown(state.eventData.countdownSeconds);
 
                 if (state.captureCancelled) return;
@@ -478,10 +538,9 @@ const state = {
 
                 state.capturedImages.push(snapshot);
 
-                if (i < photoCount - 1) {
-
-                    await waitBeforeNextPhoto();
-
+                if (photoCount > 1) {
+                    await showCapturedPhotoPreview(snapshot);
+                    if (state.captureCancelled) return;
                 }
 
             }
@@ -515,8 +574,12 @@ const state = {
 
             return new Promise((resolve) => {
 
+                const startTime = performance.now();
                 let count = seconds;
 
+                DOM.countdownNumber.classList.remove('animate-ping');
+                DOM.countdownNumber.classList.remove('text-6xl');
+                DOM.countdownNumber.classList.add('text-9xl');
                 DOM.countdownOverlay.classList.remove('hidden');
 
                 DOM.countdownNumber.textContent = count;
@@ -524,43 +587,76 @@ const state = {
                 playBeepSound(600, 0.1);
 
                 state.countdownResolve = resolve;
-                state.countdownInterval = setInterval(() => {
+                const tick = () => {
+                    const elapsedTicks = Math.floor((performance.now() - startTime) / COUNTDOWN_TICK_MS);
+                    const nextCount = seconds - elapsedTicks;
 
-                    count--;
-
-                    if (count > 0) {
-
-                        DOM.countdownNumber.textContent = count;
-
-                        playBeepSound(600, 0.1);
-
-                    } else {
-
-                        clearInterval(state.countdownInterval);
-                        state.countdownInterval = null;
+                    if (nextCount <= 0) {
+                        state.countdownTimeout = null;
                         state.countdownResolve = null;
-
                         DOM.countdownOverlay.classList.add('hidden');
-
                         resolve();
-
+                        return;
                     }
 
-                }, 1000);
+                    if (nextCount < count) {
+                        count = nextCount;
+                        DOM.countdownNumber.textContent = count;
+                        playBeepSound(600, 0.1);
+                    }
+
+                    const nextTickAt = startTime + (seconds - count + 1) * COUNTDOWN_TICK_MS;
+                    state.countdownTimeout = setTimeout(tick, Math.max(0, nextTickAt - performance.now()));
+                };
+
+                const firstTickAt = startTime + COUNTDOWN_TICK_MS;
+                state.countdownTimeout = setTimeout(tick, Math.max(0, firstTickAt - performance.now()));
 
             });
 
         }
 
-        function waitBeforeNextPhoto() {
+        function runReadyPrompt() {
             return new Promise(resolve => {
+                DOM.countdownNumber.classList.remove('animate-ping', 'text-9xl');
+                DOM.countdownNumber.classList.add('text-6xl');
+                DOM.countdownNumber.textContent = 'Ready?';
+                DOM.countdownOverlay.classList.remove('hidden');
+                state.captureDelayResolve = resolve;
+                state.captureDelayTimeout = setTimeout(() => {
+                    state.captureDelayTimeout = null;
+                    state.captureDelayResolve = null;
+                    DOM.countdownOverlay.classList.add('hidden');
+                    DOM.countdownNumber.classList.add('animate-ping');
+                    resolve();
+                }, READY_PROMPT_MS);
+            });
+        }
+
+        async function showCapturedPhotoPreview(imageData) {
+            DOM.capturedPhotoPreview.src = imageData;
+            DOM.video.pause();
+            DOM.capturedPhotoPreview.classList.remove('hidden');
+
+            await new Promise(resolve => {
                 state.captureDelayResolve = resolve;
                 state.captureDelayTimeout = setTimeout(() => {
                     state.captureDelayTimeout = null;
                     state.captureDelayResolve = null;
                     resolve();
-                }, 1500);
+                }, CAPTURED_PHOTO_PREVIEW_MS);
             });
+
+            DOM.capturedPhotoPreview.classList.add('hidden');
+            DOM.capturedPhotoPreview.removeAttribute('src');
+            if (state.captureCancelled || !DOM.video.srcObject) return;
+
+            try {
+                await DOM.video.play();
+            } catch (error) {
+                DOM.cameraStatus.textContent = 'The live camera preview could not resume. Please reload the booth before capturing again.';
+                console.error('Unable to resume the live camera preview after showing the captured photo.', error);
+            }
         }
 
         function triggerFlash() {
@@ -600,9 +696,9 @@ const state = {
             state.captureCancelled = true;
             state.captureInProgress = false;
 
-            if (state.countdownInterval !== null) {
-                clearInterval(state.countdownInterval);
-                state.countdownInterval = null;
+            if (state.countdownTimeout !== null) {
+                clearTimeout(state.countdownTimeout);
+                state.countdownTimeout = null;
             }
             if (state.countdownResolve) {
                 state.countdownResolve();
@@ -616,6 +712,8 @@ const state = {
                 state.captureDelayResolve();
                 state.captureDelayResolve = null;
             }
+            DOM.capturedPhotoPreview.classList.add('hidden');
+            DOM.capturedPhotoPreview.removeAttribute('src');
             DOM.countdownOverlay.classList.add('hidden');
 
             stopWebcam();
@@ -1613,11 +1711,20 @@ const state = {
             clearInterval(state.autoResetTimer);
 
             state.resetCountdownRemaining = parseInt(state.eventData.resetSeconds);
+            state.autoResetPaused = false;
 
             const timerDisplay = document.getElementById('auto-reset-timer');
 
             if (timerDisplay) timerDisplay.textContent = state.resetCountdownRemaining;
 
+            resumeAutoResetTimer();
+
+        }
+
+        function resumeAutoResetTimer() {
+            if (state.currentScreen !== 'review' || state.autoResetTimer !== null) return;
+
+            const timerDisplay = document.getElementById('auto-reset-timer');
             state.autoResetTimer = setInterval(() => {
 
                 state.resetCountdownRemaining--;
@@ -1627,6 +1734,8 @@ const state = {
                 if (state.resetCountdownRemaining <= 0) {
 
                     clearInterval(state.autoResetTimer);
+                    state.autoResetTimer = null;
+                    state.autoResetPaused = false;
 
                     resetToHome();
 
@@ -1639,6 +1748,8 @@ const state = {
         function resetToHome() {
 
             clearInterval(state.autoResetTimer);
+            state.autoResetTimer = null;
+            state.autoResetPaused = false;
 
             state.capturedImages = [];
 
@@ -1647,6 +1758,11 @@ const state = {
         }
 
         function openAdminPanel() {
+            if (state.currentScreen === 'review' && state.autoResetTimer !== null) {
+                clearInterval(state.autoResetTimer);
+                state.autoResetTimer = null;
+                state.autoResetPaused = true;
+            }
             DOM.adminDrawer.classList.remove('translate-x-full');
             DOM.cameraSelect.value = state.selectedCameraId;
             syncEventFontInputs();
@@ -1667,6 +1783,10 @@ const state = {
         function closeAdminPanel() {
 
             DOM.adminDrawer.classList.add('translate-x-full');
+            if (state.autoResetPaused) {
+                state.autoResetPaused = false;
+                resumeAutoResetTimer();
+            }
 
         }
 

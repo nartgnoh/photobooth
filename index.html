@@ -43,7 +43,7 @@
 
 
 
-    <link rel="stylesheet" href="css/styles.css?v=ui-theme-sync-20261024">
+    <link rel="stylesheet" href="css/styles.css?v=multi-photo-capture-preview-20261024">
     <link rel="stylesheet" href="css/border-frames.css?v=86f56fa">
 
 </head>
@@ -215,8 +215,6 @@
                             <div class="bg-champagne/30 rounded border border-dashed border-gold/40"></div>
                             <div class="bg-champagne/30 rounded border border-dashed border-gold/40"></div>
                         </div>
-                        <div class="flex-1 border-t border-sage/60 flex items-center justify-center">
-                        </div>
                     </div>
 
                     <div class="text-center">
@@ -274,15 +272,17 @@
 
         <!-- 2. LIVE CAMERA CAPTURE SCREEN -->
 
-        <section id="screen-capture" class="hidden w-full max-w-4xl flex-col items-center justify-center relative my-auto z-10">
+        <section id="screen-capture" class="capture-layout hidden w-full max-w-4xl flex-col items-center justify-center relative my-auto z-10">
 
-            <div class="relative w-full max-w-2xl aspect-[4/3] bg-black rounded-3xl overflow-hidden border-4 border-gold/60 shadow-2xl flex items-center justify-center">
+            <div class="capture-preview-frame relative w-full max-w-2xl aspect-[4/3] bg-black rounded-3xl overflow-hidden border-4 border-gold/60 shadow-2xl flex items-center justify-center">
 
                 <video id="webcam" playsinline muted class="w-full h-full object-cover transform -scale-x-100"></video>
 
+                <img id="captured-photo-preview" alt="" class="hidden absolute inset-0 z-10 h-full w-full object-cover">
 
 
-                <div id="countdown-overlay" class="hidden absolute inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-20">
+
+                <div id="countdown-overlay" class="hidden absolute inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center z-20">
 
                     <span id="countdown-number" class="font-serif text-9xl font-bold text-white drop-shadow-lg animate-ping">3</span>
 
@@ -314,7 +314,7 @@
 
 
 
-            <div class="mt-4 w-full max-w-2xl grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+            <div class="capture-controls mt-4 w-full max-w-2xl grid grid-cols-[1fr_auto_1fr] items-center gap-3">
 
                 <button type="button" onclick="cancelCapture()" aria-label="Back to photo layouts" class="justify-self-start px-4 py-3 rounded-full bg-white text-charcoal text-sm font-semibold shadow-md border border-champagne flex items-center space-x-2 hover:bg-warmSand active:scale-95 transition">
 
@@ -814,7 +814,7 @@
 
 
     <script src="js/border-frames.js?v=86f56fa"></script>
-    <script src="js/app.js?v=single-caption-box-centered-20261024"></script>
+    <script src="js/app.js?v=multi-photo-capture-preview-20261024"></script>
 
 </body>
 

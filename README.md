@@ -6,7 +6,7 @@ A browser-based photo booth for events. Use a phone, tablet, or computer camera 
 
 - Four photo layouts: single landscape, two-photo strip, four-photo grid, and four-photo portrait strip.
 - Live camera preview, camera selection, countdown, and multi-shot capture.
-- Countdown beeps and a camera-style shutter sound for each photo.
+- A slightly slower countdown, a “Ready?” prompt before every photo countdown, a one-second preview after each photo in multi-photo layouts, countdown beeps, and a camera-style shutter sound for each photo.
 - Event title, calendar-selected date, message, individually selectable fonts for each text field (including Courier New, Times New Roman, Cooper Black, New Century Schoolbook, Optima, and Helvetica), and optional logo on photo designs.
 - Built-in frame themes that also recolor the booth interface, customizable colors, and selectable print backgrounds, including a custom image from the device, with translucent, theme-colored caption frames.
 - Download photos, print from the browser, and revisit recent captures in the session gallery.
