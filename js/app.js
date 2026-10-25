@@ -1031,8 +1031,8 @@ const state = {
         function drawPhotosAndOverlay(ctx, W, H, images, fontColor, accentColor, bgColor, logoImage = null, borderStyle = state.borderStyle) {
             const template = state.selectedTemplate;
             if (template === 'single') {
-                const printInsetPx = 18;
-                drawPhotoFrame(ctx, images[0], 220 - printInsetPx, 85, 1360, 765, accentColor, 7);
+                const printInsetPx = 20;
+                drawPhotoFrame(ctx, images[0], 220, 85, 1360 - printInsetPx, 765, accentColor, 7);
                 drawSingleEventCaption(ctx, fontColor, accentColor, W);
                 return;
             }
@@ -1109,26 +1109,26 @@ const state = {
             }
 
             if (template === 'grid4') {
-                const printInsetPx = 18;
-                const featuredPhotoX = 95;
-                const featuredPhotoWidth = 900;
-                const detailsWidth = 650;
-                const detailsX = (featuredPhotoX + featuredPhotoWidth + W - 30 - detailsWidth) / 2 - printInsetPx;
+                const printInsetPx = 20;
+                const featuredPhotoX = 94;
+                const featuredPhotoWidth = 890;
+                const detailsWidth = 630;
+                const detailsX = (featuredPhotoX + featuredPhotoWidth + W - 30 - detailsWidth) / 2 - 10;
                 drawPhotoFrame(ctx, images[0], featuredPhotoX, 105, featuredPhotoWidth, 555, accentColor, 6);
                 drawEventDetails(ctx, fontColor, accentColor, detailsX, 145, detailsWidth, 465, 53, logoImage);
 
                 const photoY = 760;
                 const photoWidth = 500;
                 const photoHeight = 320;
-                const photoGap = (W - 3 * photoWidth) / 4;
+                const photoGap = (W - 3 * photoWidth - printInsetPx) / 4;
                 [1, 2, 3].forEach((imageIndex, index) => {
-                    const photoX = photoGap + index * (photoWidth + photoGap);
+                    const photoX = photoGap + index * (photoWidth + photoGap) - 10;
                     drawPhotoFrame(ctx, images[imageIndex], photoX, photoY, photoWidth, photoHeight, accentColor, 6);
                 });
             }
 
             if (template === 'portrait4') {
-                const printInsetPx = 18;
+                const printInsetPx = 20;
                 const photoWidth = 450;
                 const photoHeight = 490;
                 const photoPositions = [
@@ -1142,7 +1142,8 @@ const state = {
                     drawPhotoFrame(ctx, images[index], x, y, photoWidth, photoHeight, accentColor, 6);
                 });
 
-                drawPortraitEventCaption(ctx, W, fontColor, accentColor, logoImage);
+                const captionY = (logoImage ? 1280 : 1225) - 26;
+                drawPortraitEventCaption(ctx, W, fontColor, accentColor, logoImage, captionY);
             }
         }
 
