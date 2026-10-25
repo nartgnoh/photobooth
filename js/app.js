@@ -1011,8 +1011,8 @@ const state = {
             if (template === 'strip2') {
 
                 const stripWidth = 480;
-
-                const stripPositions = [45, 675];
+                const stripSideInset = 24;
+                const stripPositions = [45 + stripSideInset, 675 - stripSideInset];
 
                 const photoXInset = 26;
 
@@ -1072,9 +1072,9 @@ const state = {
 
                 ctx.font = "700 16px 'Montserrat', sans-serif";
 
-                ctx.fillText("CUT", W / 2, 52);
+                ctx.fillText("CUT", W / 2, 5);
 
-                ctx.fillText("CUT", W / 2, H - 40);
+                ctx.fillText("CUT", W / 2, H - 5);
 
                 return;
             }
@@ -1629,7 +1629,7 @@ const state = {
                 gold: { background: '#FDFBF7', accent: '#D4AF37', text: '#2C2A29' },
                 sage: { background: '#F4F6F4', accent: '#82A479', text: '#363F3B' },
                 minimal: { background: '#FFFFFF', accent: '#25201D', text: '#25201D' },
-                rose: { background: '#FAF5F5', accent: '#E8D3D3', text: '#581825' },
+                rose: { background: '#FAF5F5', accent: '#D09595', text: '#581825' },
                 ocean: { background: '#F3F7F8', accent: '#397C8A', text: '#20333A' },
                 lavender: { background: '#F7F4FA', accent: '#8D79A8', text: '#352D40' },
                 terracotta: { background: '#FBF4EF', accent: '#B86645', text: '#492F26' },

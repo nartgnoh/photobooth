@@ -16,7 +16,7 @@ tailwind.config = {
 
                         deepGold: '#AA820A',
 
-                        roseDust: '#E8D3D3',
+                        roseDust: '#D09595',
 
                         sage: '#82A479',
 

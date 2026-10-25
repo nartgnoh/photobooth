@@ -11,6 +11,7 @@ A browser-based photo booth for events. Use a phone, tablet, or computer camera 
 - Built-in frame themes that also recolor the booth interface, customizable colors, and selectable print backgrounds, including a custom image from the device, with translucent, theme-colored caption frames.
 - Booth configuration is saved in the current browser on the current device, including event details, design choices, and uploaded logo/background images; settings can be restored to their defaults from the configuration panel.
 - Photo layouts and decorative frames are scaled slightly inward from the edge, while the selected background continues to the edge, helping keep important content inside the SELPHY's workable print area when AirPrint crops a little.
+- Each photo strip is additionally shifted 2 mm inward from the outer side of the sheet, without changing the strips' size or aspect ratio.
 - Download photos, print from the browser, and revisit recent captures in the session gallery.
 - Installable web app support for using the booth from a Home Screen.
 
