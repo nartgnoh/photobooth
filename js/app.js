@@ -994,7 +994,7 @@ const state = {
                         ctx,
                         30 + frameInset / 2,
                         30 + frameInset / 2,
-                        W - 60 - frameInset,
+                        W - 60 - (frameInset * 2),
                         H - 60 - frameInset,
                         accentColor,
                         borderStyle
@@ -1121,14 +1121,14 @@ const state = {
                 const featuredPhotoX = 112;
                 const featuredPhotoWidth = 890;
                 const detailsWidth = 630;
-                const detailsX = (featuredPhotoX + featuredPhotoWidth + W - 30 - detailsWidth) / 2 - 10;
+                const detailsX = (featuredPhotoX + featuredPhotoWidth + W - 30 - detailsWidth) / 2 - 24;
                 drawPhotoFrame(ctx, images[0], featuredPhotoX, 105, featuredPhotoWidth, 555, accentColor, 6);
                 drawEventDetails(ctx, fontColor, accentColor, detailsX, 145, detailsWidth, 465, 53, logoImage);
 
                 const photoY = 760;
                 const photoWidth = 500;
                 const photoHeight = 320;
-                const rowGap = 40;
+                const rowGap = 32;
                 const totalBottomRowWidth = photoWidth * 3 + rowGap * 2;
                 const rowStartX = (W - totalBottomRowWidth) / 2 + 8;
                 [1, 2, 3].forEach((imageIndex, index) => {
@@ -1243,7 +1243,7 @@ const state = {
             ctx.strokeRect(x, y, width, height);
         }
 
-        function drawLogoImage(ctx, image, centerX, topY, maxWidth, maxHeight) {
+        function drawLogoImage(ctx, image, centerX, topY, maxWidth, maxHeFframeight) {
             const scale = Math.min(maxWidth / image.width, maxHeight / image.height);
             const width = image.width * scale;
             const height = image.height * scale;
