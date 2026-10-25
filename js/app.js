@@ -1031,7 +1031,8 @@ const state = {
         function drawPhotosAndOverlay(ctx, W, H, images, fontColor, accentColor, bgColor, logoImage = null, borderStyle = state.borderStyle) {
             const template = state.selectedTemplate;
             if (template === 'single') {
-                drawPhotoFrame(ctx, images[0], 220, 85, 1360, 765, accentColor, 7);
+                const printInsetPx = 18;
+                drawPhotoFrame(ctx, images[0], 220 - printInsetPx, 85, 1360, 765, accentColor, 7);
                 drawSingleEventCaption(ctx, fontColor, accentColor, W);
                 return;
             }
@@ -1108,10 +1109,11 @@ const state = {
             }
 
             if (template === 'grid4') {
+                const printInsetPx = 18;
                 const featuredPhotoX = 95;
                 const featuredPhotoWidth = 900;
                 const detailsWidth = 650;
-                const detailsX = (featuredPhotoX + featuredPhotoWidth + W - 30 - detailsWidth) / 2;
+                const detailsX = (featuredPhotoX + featuredPhotoWidth + W - 30 - detailsWidth) / 2 - printInsetPx;
                 drawPhotoFrame(ctx, images[0], featuredPhotoX, 105, featuredPhotoWidth, 555, accentColor, 6);
                 drawEventDetails(ctx, fontColor, accentColor, detailsX, 145, detailsWidth, 465, 53, logoImage);
 
@@ -1126,13 +1128,14 @@ const state = {
             }
 
             if (template === 'portrait4') {
+                const printInsetPx = 18;
                 const photoWidth = 450;
                 const photoHeight = 490;
                 const photoPositions = [
                     [120, 145],
                     [630, 145],
-                    [120, 675],
-                    [630, 675]
+                    [120, 675 - printInsetPx],
+                    [630, 675 - printInsetPx]
                 ];
 
                 photoPositions.forEach(([x, y], index) => {
