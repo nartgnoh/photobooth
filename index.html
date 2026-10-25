@@ -72,9 +72,9 @@
 
             <div>
 
-                <h1 id="header-title" class="font-cinzel text-lg md:text-xl tracking-wider text-charcoal font-semibold">DENNIS & HONG'S WEDDING</h1>
+                <h1 id="header-title" class="font-cinzel text-lg md:text-xl tracking-wider text-charcoal font-bold">DENNIS & HONG'S WEDDING</h1>
 
-                <p id="header-date" class="text-xs text-gold font-medium tracking-widest uppercase"></p>
+                <p id="header-date" class="text-xs text-gold font-bold tracking-widest uppercase"></p>
 
             </div>
 
@@ -652,7 +652,7 @@
                         </button>
 
                         <button type="button" data-theme="sage" aria-pressed="false" onclick="changeOverlayTheme('sage')" class="overlay-theme-option p-2.5 rounded-xl border border-champagne text-xs font-medium text-center hover:border-gold focus:border-gold focus:bg-warmSand flex flex-col items-center space-y-1">
-                            <span class="w-4 h-4 rounded-full inline-block" style="background-color: #ADC2A8"></span>
+                            <span class="w-4 h-4 rounded-full inline-block" style="background-color: #82A479"></span>
                             <span>Botanical Sage</span>
                         </button>
 
@@ -801,11 +801,51 @@
 
             </button>
 
+            <button id="reset-config-button" type="button" onclick="showResetBoothConfigurationDialog()" class="mt-2 w-full py-2.5 border border-red-300 text-red-700 font-medium rounded-xl hover:bg-red-50 transition">
+
+                Reset Booth Configuration
+
+            </button>
+
         </div>
 
     </div>
+    </div>
+    <div id="reset-config-modal" class="hidden fixed inset-0 z-[110] flex items-center justify-center bg-charcoal/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="reset-config-title" aria-describedby="reset-config-description" onclick="if (event.target === this) closeResetBoothConfigurationDialog()">
 
+        <div class="w-full max-w-md overflow-hidden rounded-3xl border border-champagne bg-white shadow-2xl">
 
+            <div class="flex items-start gap-4 p-6 pb-4">
+
+                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+                    <i data-lucide="rotate-ccw" class="h-6 w-6"></i>
+                </div>
+
+                <div>
+                    <h2 id="reset-config-title" class="font-serif text-xl font-semibold text-charcoal">Reset booth configuration?</h2>
+                    <p id="reset-config-description" class="mt-2 text-sm leading-relaxed text-gray-600">This restores the booth settings on this device to their defaults.</p>
+                </div>
+
+            </div>
+
+            <div class="mx-6 rounded-2xl border border-red-100 bg-red-50/70 p-4 text-sm text-gray-700">
+                <p class="font-medium text-red-800">The following settings will be cleared:</p>
+                <ul class="mt-2 list-inside list-disc space-y-1 text-xs leading-relaxed">
+                    <li>Event name, date, message, fonts, and logo</li>
+                    <li>Theme, colors, decorative border, and print background</li>
+                    <li>Camera selection, countdown, and auto-reset delay</li>
+                </ul>
+                <p class="mt-3 text-xs font-medium text-gray-600">Recent photos from this session will not be deleted.</p>
+            </div>
+
+            <div class="flex flex-col-reverse gap-2 p-6 pt-5 sm:flex-row sm:justify-end">
+                <button type="button" onclick="closeResetBoothConfigurationDialog()" class="rounded-xl border border-champagne px-4 py-2.5 text-sm font-medium text-charcoal transition hover:bg-warmSand">Keep my settings</button>
+                <button type="button" onclick="applyBoothConfigurationReset()" class="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2">Reset configuration</button>
+            </div>
+
+        </div>
+
+    </div>
 
     <!-- HIDDEN PRINT CONTAINER -->
 
@@ -814,7 +854,7 @@
 
 
     <script src="js/border-frames.js?v=86f56fa"></script>
-    <script src="js/app.js?v=multi-photo-capture-preview-20261024"></script>
+    <script src="js/app.js?v=celebration-text-contrast-20261024"></script>
 
 </body>
 

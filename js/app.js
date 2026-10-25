@@ -1,7 +1,11 @@
 const EVENT_TEXT_STORAGE_KEY = 'photobooth-event-text-v1';
+const BOOTH_SETTINGS_DATABASE = 'photobooth-settings';
+const BOOTH_SETTINGS_STORE = 'settings';
+const BOOTH_SETTINGS_KEY = 'current';
 const COUNTDOWN_TICK_MS = 1200;
 const READY_PROMPT_MS = COUNTDOWN_TICK_MS;
 const CAPTURED_PHOTO_PREVIEW_MS = 1000;
+const PRINT_CONTENT_SCALE = 0.96;
 
 const EVENT_FONT_OPTIONS = [
     { value: 'Alex Brush', label: 'Alex Brush' },
@@ -15,6 +19,9 @@ const EVENT_FONT_OPTIONS = [
     { value: 'Playfair Display', label: 'Playfair Display' },
     { value: 'Times New Roman', label: 'Times New Roman' }
 ];
+
+let boothSettingsDatabasePromise = null;
+let boothSettingsSaveTimeout = null;
 
 const state = {
 
@@ -149,11 +156,11 @@ const state = {
 
         };
 
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
 
             lucide.createIcons();
 
-            loadPersistentEventText();
+            await loadPersistentBoothSettings();
             document.getElementById('cfg-title').value = state.eventData.title;
             syncEventDateInputs();
             document.getElementById('cfg-subtitle').value = state.eventData.subtitle;
@@ -171,12 +178,61 @@ const state = {
 
         });
 
-        function loadPersistentEventText() {
-            try {
-                const savedText = localStorage.getItem(EVENT_TEXT_STORAGE_KEY);
-                if (!savedText) return;
+        function openBoothSettingsDatabase() {
+            if (boothSettingsDatabasePromise) return boothSettingsDatabasePromise;
 
-                const eventText = JSON.parse(savedText);
+            boothSettingsDatabasePromise = new Promise((resolve, reject) => {
+                const request = indexedDB.open(BOOTH_SETTINGS_DATABASE, 1);
+                request.onupgradeneeded = () => {
+                    request.result.createObjectStore(BOOTH_SETTINGS_STORE);
+                };
+                request.onsuccess = () => {
+                    const database = request.result;
+                    database.onversionchange = () => database.close();
+                    resolve(database);
+                };
+                request.onerror = () => reject(request.error || new Error('Unable to open booth settings storage.'));
+                request.onblocked = () => reject(new Error('Booth settings storage is blocked by another open page.'));
+            }).catch(error => {
+                boothSettingsDatabasePromise = null;
+                throw error;
+            });
+
+            return boothSettingsDatabasePromise;
+        }
+
+        function readBoothSettings(database) {
+            return new Promise((resolve, reject) => {
+                const transaction = database.transaction(BOOTH_SETTINGS_STORE, 'readonly');
+                const request = transaction.objectStore(BOOTH_SETTINGS_STORE).get(BOOTH_SETTINGS_KEY);
+                request.onsuccess = () => resolve(request.result || null);
+                request.onerror = () => reject(request.error || new Error('Unable to read saved booth settings.'));
+                transaction.onabort = () => reject(transaction.error || new Error('Reading booth settings was interrupted.'));
+            });
+        }
+
+        function writeBoothSettings(database, settings) {
+            return new Promise((resolve, reject) => {
+                const transaction = database.transaction(BOOTH_SETTINGS_STORE, 'readwrite');
+                transaction.objectStore(BOOTH_SETTINGS_STORE).put(settings, BOOTH_SETTINGS_KEY);
+                transaction.oncomplete = () => resolve();
+                transaction.onerror = () => reject(transaction.error || new Error('Unable to save booth settings.'));
+                transaction.onabort = () => reject(transaction.error || new Error('Saving booth settings was interrupted.'));
+            });
+        }
+
+        async function loadPersistentBoothSettings() {
+            try {
+                const database = await openBoothSettingsDatabase();
+                const savedSettings = await readBoothSettings(database);
+                if (savedSettings) {
+                    await applyPersistentBoothSettings(savedSettings);
+                    return;
+                }
+
+                const legacyText = localStorage.getItem(EVENT_TEXT_STORAGE_KEY);
+                if (!legacyText) return;
+                const eventText = JSON.parse(legacyText);
                 if (!eventText || typeof eventText !== 'object' ||
                     typeof eventText.title !== 'string' ||
                     typeof eventText.date !== 'string' ||
@@ -185,14 +241,7 @@ const state = {
                 }
 
                 state.eventData.title = eventText.title;
-                const calendarDate = toCalendarDate(eventText.date);
-                if (calendarDate === null) {
-                    document.getElementById('settings-status').textContent =
-                        'The saved event date could not be opened in the calendar. Please choose it again.';
-                    state.eventData.date = '';
-                } else {
-                    state.eventData.date = calendarDate;
-                }
+                state.eventData.date = toCalendarDate(eventText.date) || '';
                 state.eventData.subtitle = eventText.subtitle;
                 if (eventText.fonts && typeof eventText.fonts === 'object') {
                     state.eventData.fonts = {
@@ -201,30 +250,155 @@ const state = {
                         subtitle: getSavedFont(eventText.fonts.subtitle, 'Montserrat')
                     };
                 }
+                await savePersistentBoothSettings();
             } catch (error) {
-                console.error('Unable to load saved event text.', error);
+                console.error('Unable to load saved booth settings.', error);
                 document.getElementById('settings-status').textContent =
-                    'Could not load saved event text from this device.';
+                    'Could not load saved booth settings from this device.';
             }
         }
 
-        function savePersistentEventText() {
-            const eventText = {
+        async function applyPersistentBoothSettings(settings) {
+            if (!settings || typeof settings !== 'object') {
+                throw new Error('Saved booth settings have an invalid format.');
+            }
+
+            if (typeof settings.title === 'string') state.eventData.title = settings.title;
+            if (typeof settings.date === 'string') state.eventData.date = toCalendarDate(settings.date) || '';
+            if (typeof settings.subtitle === 'string') state.eventData.subtitle = settings.subtitle;
+            if (settings.fonts && typeof settings.fonts === 'object') {
+                state.eventData.fonts = {
+                    title: getSavedFont(settings.fonts.title, 'Playfair Display'),
+                    date: getSavedFont(settings.fonts.date, 'Cinzel'),
+                    subtitle: getSavedFont(settings.fonts.subtitle, 'Montserrat')
+                };
+            }
+            if ([3, 5, 10].includes(Number(settings.countdownSeconds))) {
+                state.eventData.countdownSeconds = Number(settings.countdownSeconds);
+            }
+            if ([30, 60, 90].includes(Number(settings.resetSeconds))) {
+                state.eventData.resetSeconds = Number(settings.resetSeconds);
+            }
+            if (typeof settings.selectedCameraId === 'string') {
+                state.selectedCameraId = settings.selectedCameraId;
+            }
+
+            const themes = ['gold', 'sage', 'minimal', 'rose', 'ocean', 'lavender', 'terracotta', 'midnight', 'custom'];
+            if (themes.includes(settings.overlayTheme)) state.overlayTheme = settings.overlayTheme;
+            if (settings.customThemeColors && ['background', 'accent', 'text'].every(color =>
+                /^#[0-9a-f]{6}$/i.test(settings.customThemeColors[color])
+            )) {
+                state.customThemeColors = { ...settings.customThemeColors };
+            } else if (state.overlayTheme !== 'custom') {
+                state.customThemeColors = { ...getOverlayThemeColors(state.overlayTheme) };
+            }
+            if (PhotoBoothBorders.hasStyle(settings.borderStyle)) state.borderStyle = settings.borderStyle;
+            if (['theme', 'water-lilies', 'custom'].includes(settings.printBackground)) {
+                state.printBackground = settings.printBackground;
+            }
+
+            state.eventLogoDataUrl = typeof settings.eventLogoDataUrl === 'string' ? settings.eventLogoDataUrl : '';
+            if (typeof settings.customPrintBackgroundDataUrl === 'string' && settings.customPrintBackgroundDataUrl) {
+                try {
+                    state.customPrintBackgroundImage = await loadImage(settings.customPrintBackgroundDataUrl);
+                    state.customPrintBackgroundName = typeof settings.customPrintBackgroundName === 'string'
+                        ? settings.customPrintBackgroundName
+                        : 'Custom background';
+                } catch (error) {
+                    console.error('Unable to restore the saved print background image.', error);
+                    state.customPrintBackgroundImage = null;
+                    state.customPrintBackgroundName = '';
+                    state.printBackground = 'theme';
+                }
+            }
+
+            if (state.printBackground === 'custom' && !state.customPrintBackgroundImage) {
+                state.printBackground = 'theme';
+            }
+
+            if (state.eventLogoDataUrl) {
+                try {
+                    await loadImage(state.eventLogoDataUrl);
+                } catch (error) {
+                    console.error('Unable to restore the saved event logo.', error);
+                    state.eventLogoDataUrl = '';
+                }
+            }
+
+            document.getElementById('cfg-title').value = state.eventData.title;
+            document.getElementById('cfg-subtitle').value = state.eventData.subtitle;
+            document.getElementById('cfg-countdown').value = String(state.eventData.countdownSeconds);
+            document.getElementById('cfg-reset').value = String(state.eventData.resetSeconds);
+            document.getElementById('cfg-camera').value = state.selectedCameraId;
+            document.getElementById('custom-bg-color').value = state.customThemeColors.background;
+            document.getElementById('custom-accent-color').value = state.customThemeColors.accent;
+            document.getElementById('custom-text-color').value = state.customThemeColors.text;
+            syncEventFontInputs();
+            syncEventDateInputs();
+            updateLogoPreview();
+            document.getElementById('custom-print-background-preview').src =
+                state.customPrintBackgroundImage ? state.customPrintBackgroundImage.src : '';
+            document.getElementById('custom-print-background-preview').classList.toggle('hidden', !state.customPrintBackgroundImage);
+            document.getElementById('custom-print-background-placeholder').classList.toggle('hidden', Boolean(state.customPrintBackgroundImage));
+            document.getElementById('custom-print-background-name').textContent = state.customPrintBackgroundName;
+            document.getElementById('custom-print-background-remove').classList.toggle('hidden', !state.customPrintBackgroundImage);
+            syncPrintBackgroundOptions();
+            applyAppTheme(getOverlayThemeColors());
+            syncBorderStyleOptions();
+            updateHeaderDisplay();
+        }
+
+        function loadImage(source) {
+            return new Promise((resolve, reject) => {
+                const image = new Image();
+                image.onload = () => resolve(image);
+                image.onerror = () => reject(new Error('The saved image could not be loaded.'));
+                image.src = source;
+            });
+        }
+
+        function getPersistentBoothSettings() {
+            return {
                 title: state.eventData.title,
                 date: state.eventData.date,
                 subtitle: state.eventData.subtitle,
-                fonts: state.eventData.fonts
+                fonts: { ...state.eventData.fonts },
+                countdownSeconds: state.eventData.countdownSeconds,
+                resetSeconds: state.eventData.resetSeconds,
+                selectedCameraId: state.selectedCameraId,
+                overlayTheme: state.overlayTheme,
+                customThemeColors: { ...state.customThemeColors },
+                borderStyle: state.borderStyle,
+                printBackground: state.printBackground,
+                eventLogoDataUrl: state.eventLogoDataUrl,
+                customPrintBackgroundDataUrl: state.customPrintBackgroundImage
+                    ? state.customPrintBackgroundImage.src
+                    : '',
+                customPrintBackgroundName: state.customPrintBackgroundName
             };
+        }
 
+        async function savePersistentBoothSettings() {
             try {
-                localStorage.setItem(EVENT_TEXT_STORAGE_KEY, JSON.stringify(eventText));
+                const database = await openBoothSettingsDatabase();
+                await writeBoothSettings(database, getPersistentBoothSettings());
+                localStorage.removeItem(EVENT_TEXT_STORAGE_KEY);
+                document.getElementById('settings-status').textContent =
+                    'Booth settings saved on this device and will remain after a refresh.';
                 return true;
             } catch (error) {
-                console.error('Unable to save event text on this device.', error);
+                console.error('Unable to save booth settings on this device.', error);
                 document.getElementById('settings-status').textContent =
-                    'Settings applied, but this browser could not save them for next time.';
+                    'Settings could not be saved in this browser. Check available device storage.';
                 return false;
             }
+        }
+
+        function schedulePersistentBoothSettingsSave() {
+            clearTimeout(boothSettingsSaveTimeout);
+            boothSettingsSaveTimeout = setTimeout(() => {
+                savePersistentBoothSettings();
+            }, 300);
         }
 
         function updateHeaderDisplay() {
@@ -235,6 +409,28 @@ const state = {
             DOM.headerDate.style.fontFamily = `'${state.eventData.fonts.date}', serif`;
             DOM.headerDate.classList.toggle('hidden', !state.eventData.date);
 
+        }
+
+        function showResetBoothConfigurationDialog() {
+            const modal = document.getElementById('reset-config-modal');
+            modal.classList.remove('hidden');
+            modal.querySelector('button').focus();
+            document.addEventListener('keydown', handleResetDialogKeydown);
+        }
+
+        function closeResetBoothConfigurationDialog() {
+            const modal = document.getElementById('reset-config-modal');
+            if (modal.classList.contains('hidden')) return;
+
+            modal.classList.add('hidden');
+            document.removeEventListener('keydown', handleResetDialogKeydown);
+            document.getElementById('reset-config-button').focus();
+        }
+
+        function handleResetDialogKeydown(event) {
+            if (event.key === 'Escape') {
+                closeResetBoothConfigurationDialog();
+            }
         }
 
         function switchScreen(screenName) {
@@ -453,40 +649,34 @@ const state = {
             if (!ctx || ctx.state !== 'running') return;
 
             const now = ctx.currentTime;
-            const duration = 0.12;
-            const click = ctx.createOscillator();
-            const clickGain = ctx.createGain();
-
-            click.type = 'triangle';
-            click.frequency.setValueAtTime(1200, now);
-            click.frequency.exponentialRampToValueAtTime(420, now + duration);
-            clickGain.gain.setValueAtTime(0.18, now);
-            clickGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-            click.connect(clickGain);
-            clickGain.connect(ctx.destination);
-            click.start(now);
-            click.stop(now + duration);
-
-            const noiseDuration = 0.08;
+            const noiseDuration = 0.018;
             const noiseBuffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * noiseDuration), ctx.sampleRate);
             const noiseData = noiseBuffer.getChannelData(0);
             for (let i = 0; i < noiseData.length; i++) {
                 noiseData[i] = Math.random() * 2 - 1;
             }
 
-            const noise = ctx.createBufferSource();
-            const filter = ctx.createBiquadFilter();
-            const noiseGain = ctx.createGain();
-            noise.buffer = noiseBuffer;
-            filter.type = 'highpass';
-            filter.frequency.setValueAtTime(900, now);
-            noiseGain.gain.setValueAtTime(0.1, now);
-            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + noiseDuration);
-            noise.connect(filter);
-            filter.connect(noiseGain);
-            noiseGain.connect(ctx.destination);
-            noise.start(now);
-            noise.stop(now + noiseDuration);
+            const playClick = (time, frequency, peakGain) => {
+                const click = ctx.createBufferSource();
+                const filter = ctx.createBiquadFilter();
+                const clickGain = ctx.createGain();
+
+                click.buffer = noiseBuffer;
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(frequency, time);
+                filter.Q.setValueAtTime(0.9, time);
+                clickGain.gain.setValueAtTime(peakGain, time);
+                clickGain.gain.exponentialRampToValueAtTime(0.001, time + noiseDuration);
+                click.connect(filter);
+                filter.connect(clickGain);
+                clickGain.connect(ctx.destination);
+                click.start(time);
+                click.stop(time + noiseDuration);
+            };
+
+            playClick(now, 2100, 0.24);
+            playClick(now + 0.025, 820, 0.18);
+            playClick(now + 0.055, 2600, 0.08);
 
         }
 
@@ -564,7 +754,7 @@ const state = {
 
                 origin: { y: 0.6 },
 
-                colors: ['#D4AF37', '#E6D7C3', '#ADC2A8']
+                colors: ['#D4AF37', '#E6D7C3', '#82A479']
 
             });
 
@@ -762,10 +952,17 @@ const state = {
             let loadedCount = 0;
 
             const drawCanvas = (logoImage = null) => {
+                const contentWidth = W * PRINT_CONTENT_SCALE;
+                const contentHeight = H * PRINT_CONTENT_SCALE;
+
+                ctx.save();
+                ctx.translate((W - contentWidth) / 2, (H - contentHeight) / 2);
+                ctx.scale(PRINT_CONTENT_SCALE, PRINT_CONTENT_SCALE);
                 drawPhotosAndOverlay(ctx, W, H, loadedImages, fontColor, accentColor, bgColor, logoImage, borderStyle);
                 if (state.selectedTemplate !== 'strip2') {
                     PhotoBoothBorders.drawDecorativeFrame(ctx, 30, 30, W - 60, H - 60, accentColor, borderStyle);
                 }
+                ctx.restore();
                 if (addToGallery) {
                     saveToRecentGallery(canvas.toDataURL());
                 }
@@ -873,7 +1070,7 @@ const state = {
 
                 ctx.textAlign = "center";
 
-                ctx.font = "600 16px 'Montserrat', sans-serif";
+                ctx.font = "700 16px 'Montserrat', sans-serif";
 
                 ctx.fillText("CUT", W / 2, 52);
 
@@ -930,12 +1127,12 @@ const state = {
             ctx.textBaseline = "middle";
             lines.push({
                 text: "CELEBRATING",
-                color: accentColor,
-                font: `500 20px '${state.eventData.fonts.date}', serif`,
-                height: 28
+                color: fontColor,
+                font: "700 22px 'Montserrat', sans-serif",
+                height: 30
             });
 
-            ctx.font = `600 32px '${state.eventData.fonts.title}', serif`;
+            ctx.font = `700 32px '${state.eventData.fonts.title}', serif`;
             const titleWords = state.eventData.title.split(/\s+/);
             let titleLine = "";
             titleWords.forEach(word => {
@@ -954,8 +1151,8 @@ const state = {
             if (state.eventData.date) {
                 lines.push({
                     text: formatEventDate(state.eventData.date),
-                    color: accentColor,
-                    font: `500 22px '${state.eventData.fonts.date}', serif`,
+                    color: fontColor,
+                    font: `700 22px '${state.eventData.fonts.date}', serif`,
                     height: 30
                 });
             }
@@ -964,7 +1161,7 @@ const state = {
                 lines.push({
                     text: state.eventData.subtitle,
                     color: fontColor,
-                    font: `400 18px '${state.eventData.fonts.subtitle}', sans-serif`,
+                    font: `700 18px '${state.eventData.fonts.subtitle}', sans-serif`,
                     height: 26
                 });
             }
@@ -1018,21 +1215,21 @@ const state = {
             const plaqueHeight = 250;
             const lines = [{
                 text: "CELEBRATING",
-                color: accentColor,
-                font: `500 23px '${state.eventData.fonts.date}', serif`,
-                height: 30
+                color: fontColor,
+                font: "700 24px 'Montserrat', sans-serif",
+                height: 32
             }, {
                 text: state.eventData.title,
                 color: fontColor,
-                font: `600 52px '${state.eventData.fonts.title}', serif`,
+                font: `700 52px '${state.eventData.fonts.title}', serif`,
                 height: 62
             }];
 
             if (state.eventData.date) {
                 lines.push({
                     text: formatEventDate(state.eventData.date),
-                    color: accentColor,
-                    font: `600 30px '${state.eventData.fonts.date}', serif`,
+                    color: fontColor,
+                    font: `700 30px '${state.eventData.fonts.date}', serif`,
                     height: 39
                 });
             }
@@ -1041,7 +1238,7 @@ const state = {
                 lines.push({
                     text: state.eventData.subtitle,
                     color: fontColor,
-                    font: `400 25px '${state.eventData.fonts.subtitle}', sans-serif`,
+                    font: `700 25px '${state.eventData.fonts.subtitle}', sans-serif`,
                     height: 32
                 });
             }
@@ -1083,12 +1280,12 @@ const state = {
 
             lines.push({
                 text: "CELEBRATING",
-                font: `500 23px '${state.eventData.fonts.date}', serif`,
-                color: accentColor,
-                height: 30
+                font: "700 24px 'Montserrat', sans-serif",
+                color: fontColor,
+                height: 32
             });
 
-            ctx.font = `600 60px '${state.eventData.fonts.title}', serif`;
+            ctx.font = `700 60px '${state.eventData.fonts.title}', serif`;
             wrapCaptionText(ctx, state.eventData.title, maxTextWidth, 2).forEach(text => {
                 lines.push({ text, font: ctx.font, color: fontColor, height: 70 });
             });
@@ -1096,14 +1293,14 @@ const state = {
             if (state.eventData.date) {
                 lines.push({
                     text: formatEventDate(state.eventData.date),
-                    font: `500 40px '${state.eventData.fonts.date}', serif`,
-                    color: accentColor,
+                    font: `700 40px '${state.eventData.fonts.date}', serif`,
+                    color: fontColor,
                     height: 50
                 });
             }
 
             if (state.eventData.subtitle) {
-                ctx.font = `300 34px '${state.eventData.fonts.subtitle}', sans-serif`;
+                ctx.font = `700 34px '${state.eventData.fonts.subtitle}', sans-serif`;
                 wrapCaptionText(ctx, state.eventData.subtitle, maxTextWidth, 2).forEach(text => {
                     lines.push({ text, font: ctx.font, color: "#888888", height: 44 });
                 });
@@ -1166,12 +1363,12 @@ const state = {
             }
             const lines = [{
                 text: "CELEBRATING",
-                color: accentColor,
-                font: `500 23px '${state.eventData.fonts.date}', serif`,
-                height: 30
+                color: fontColor,
+                font: "700 24px 'Montserrat', sans-serif",
+                height: 32
             }];
 
-            ctx.font = `600 ${titleSize}px '${state.eventData.fonts.title}', serif`;
+            ctx.font = `700 ${titleSize}px '${state.eventData.fonts.title}', serif`;
             const titleFont = ctx.font;
             const words = title.trim().split(/\s+/).filter(Boolean);
             let line = "";
@@ -1189,8 +1386,8 @@ const state = {
             if (state.eventData.date) {
                 lines.push({
                     text: formatEventDate(state.eventData.date),
-                    color: accentColor,
-                    font: `500 25px '${state.eventData.fonts.date}', serif`,
+                    color: fontColor,
+                    font: `700 25px '${state.eventData.fonts.date}', serif`,
                     height: 34
                 });
             }
@@ -1198,7 +1395,7 @@ const state = {
                 lines.push({
                     text: state.eventData.subtitle,
                     color: "#888888",
-                    font: `300 20px '${state.eventData.fonts.subtitle}', sans-serif`,
+                    font: `700 20px '${state.eventData.fonts.subtitle}', sans-serif`,
                     height: 28
                 });
             }
@@ -1345,6 +1542,7 @@ const state = {
             state.eventData.date = calendarDate;
             syncEventDateInputs();
             updateHeaderDisplay();
+            schedulePersistentBoothSettingsSave();
             if (state.currentScreen === 'review') {
                 renderFinalCanvas();
             }
@@ -1358,6 +1556,7 @@ const state = {
             }
 
             state.eventData.fonts[field] = font;
+            schedulePersistentBoothSettingsSave();
             if (state.currentScreen === 'review') {
                 renderFinalCanvas();
             }
@@ -1421,14 +1620,15 @@ const state = {
             document.querySelectorAll('.overlay-theme-option').forEach(button => {
                 button.setAttribute('aria-pressed', String(button.dataset.theme === theme));
             });
+            schedulePersistentBoothSettingsSave();
             renderFinalCanvas();
         }
 
         function getOverlayThemeColors(theme = state.overlayTheme) {
             const themes = {
                 gold: { background: '#FDFBF7', accent: '#D4AF37', text: '#2C2A29' },
-                sage: { background: '#F4F6F4', accent: '#ADC2A8', text: '#2C2A29' },
-                minimal: { background: '#FFFFFF', accent: '#2C2A29', text: '#2C2A29' },
+                sage: { background: '#F4F6F4', accent: '#82A479', text: '#363F3B' },
+                minimal: { background: '#FFFFFF', accent: '#25201D', text: '#25201D' },
                 rose: { background: '#FAF5F5', accent: '#E8D3D3', text: '#581825' },
                 ocean: { background: '#F3F7F8', accent: '#397C8A', text: '#20333A' },
                 lavender: { background: '#F7F4FA', accent: '#8D79A8', text: '#352D40' },
@@ -1450,6 +1650,7 @@ const state = {
                 button.setAttribute('aria-pressed', 'false');
             });
             document.getElementById('custom-theme-status').textContent = 'Custom colors applied.';
+            schedulePersistentBoothSettingsSave();
             renderFinalCanvas();
         }
 
@@ -1491,6 +1692,7 @@ const state = {
 
             state.borderStyle = style;
             syncBorderStyleOptions();
+            schedulePersistentBoothSettingsSave();
             renderFinalCanvas();
         }
 
@@ -1523,6 +1725,7 @@ const state = {
                 state.eventLogoDataUrl = reader.result;
                 updateLogoPreview();
                 DOM.logoStatus.textContent = `${file.name} added. It will appear on the photo design.`;
+                schedulePersistentBoothSettingsSave();
                 if (state.currentScreen === 'review') {
                     renderFinalCanvas();
                 }
@@ -1539,6 +1742,7 @@ const state = {
             DOM.logoInput.value = '';
             DOM.logoStatus.textContent = "Logo removed.";
             updateLogoPreview();
+            schedulePersistentBoothSettingsSave();
             if (state.currentScreen === 'review') {
                 renderFinalCanvas();
             }
@@ -1792,6 +1996,12 @@ const state = {
         function openAdminPanel() {
             pauseAutoReset('admin');
             DOM.adminDrawer.classList.remove('translate-x-full');
+            if (state.selectedCameraId &&
+                !Array.from(DOM.cameraSelect.options).some(option => option.value === state.selectedCameraId)) {
+                const savedCameraOption = new Option('Saved camera', state.selectedCameraId);
+                savedCameraOption.dataset.savedCamera = 'true';
+                DOM.cameraSelect.add(savedCameraOption);
+            }
             DOM.cameraSelect.value = state.selectedCameraId;
             syncEventFontInputs();
             syncEventDateInputs();
@@ -1863,6 +2073,7 @@ const state = {
 
             state.printBackground = background;
             syncPrintBackgroundOptions();
+            schedulePersistentBoothSettingsSave();
             document.getElementById('print-background-status').textContent =
                 background === 'theme'
                     ? 'Using the background color from the selected frame theme.'
@@ -1911,6 +2122,7 @@ const state = {
                     document.getElementById('custom-print-background-remove').classList.remove('hidden');
                     state.printBackground = 'custom';
                     syncPrintBackgroundOptions();
+                    schedulePersistentBoothSettingsSave();
                     status.textContent = `${file.name} selected. It appears around photos and in layout gaps.`;
                     DOM.printBackgroundFileInput.value = '';
 
@@ -1946,6 +2158,7 @@ const state = {
             if (state.printBackground === 'custom') {
                 setPrintBackground('theme');
             }
+            schedulePersistentBoothSettingsSave();
             document.getElementById('print-background-status').textContent = 'Custom background removed.';
         }
 
@@ -1955,7 +2168,7 @@ const state = {
             });
         }
 
-        function saveAdminSettings() {
+        async function saveAdminSettings() {
             state.selectedCameraId = DOM.cameraSelect.value;
             state.eventData.title = document.getElementById('cfg-title').value.trim().toUpperCase() || "DENNIS & HONG'S WEDDING";
 
@@ -1971,16 +2184,12 @@ const state = {
 
             state.eventData.resetSeconds = parseInt(document.getElementById('cfg-reset').value);
 
-            const eventTextSaved = savePersistentEventText();
-            if (eventTextSaved) {
-                document.getElementById('settings-status').textContent =
-                    'Event name, date, and footer message saved on this device.';
-            }
+            const settingsSaved = await savePersistentBoothSettings();
 
             updateHeaderDisplay();
             syncEventDateInputs();
 
-            closeAdminPanel();
+            if (settingsSaved) closeAdminPanel();
 
             if (state.currentScreen === 'review') {
 
@@ -1988,4 +2197,73 @@ const state = {
 
             }
 
+        }
+
+        async function applyBoothConfigurationReset() {
+            closeResetBoothConfigurationDialog();
+            clearTimeout(boothSettingsSaveTimeout);
+            state.selectedTemplate = 'single';
+            state.selectedCameraId = '';
+            state.overlayTheme = 'gold';
+            state.printBackground = 'theme';
+            state.customPrintBackgroundImage = null;
+            state.customPrintBackgroundName = '';
+            state.customThemeColors = {
+                background: '#FDFBF7',
+                accent: '#D4AF37',
+                text: '#2C2A29'
+            };
+            state.borderStyle = 'classic';
+            state.eventLogoDataUrl = '';
+            state.eventData = {
+                title: "DENNIS & HONG'S WEDDING",
+                date: '2028-05-20',
+                subtitle: 'Thank you for joining us!',
+                fonts: {
+                    title: 'Playfair Display',
+                    date: 'Cinzel',
+                    subtitle: 'Montserrat'
+                },
+                countdownSeconds: 3,
+                resetSeconds: 60
+            };
+
+            document.getElementById('cfg-title').value = state.eventData.title;
+            document.getElementById('cfg-subtitle').value = state.eventData.subtitle;
+            document.getElementById('cfg-countdown').value = String(state.eventData.countdownSeconds);
+            document.getElementById('cfg-reset').value = String(state.eventData.resetSeconds);
+            document.getElementById('cfg-camera').value = '';
+            DOM.cameraSelect.querySelectorAll('option[data-saved-camera]').forEach(option => option.remove());
+            DOM.logoInput.value = '';
+            DOM.logoStatus.textContent = 'PNG, JPG, SVG, or another browser-supported image. Maximum 5 MB.';
+            updateLogoPreview();
+            DOM.printBackgroundFileInput.value = '';
+            document.getElementById('custom-print-background-preview').src = '';
+            document.getElementById('custom-print-background-preview').classList.add('hidden');
+            document.getElementById('custom-print-background-placeholder').classList.remove('hidden');
+            document.getElementById('custom-print-background-name').textContent = '';
+            document.getElementById('custom-print-background-remove').classList.add('hidden');
+            document.getElementById('custom-bg-color').value = state.customThemeColors.background;
+            document.getElementById('custom-accent-color').value = state.customThemeColors.accent;
+            document.getElementById('custom-text-color').value = state.customThemeColors.text;
+            document.getElementById('custom-theme-status').textContent = 'Choose a palette or customize its colors.';
+            document.getElementById('print-background-status').textContent =
+                'Using the background color from the selected frame theme.';
+            syncEventFontInputs();
+            syncEventDateInputs();
+            syncPrintBackgroundOptions();
+            applyAppTheme(getOverlayThemeColors());
+            syncBorderStyleOptions();
+            updateHeaderDisplay();
+
+            const settingsSaved = await savePersistentBoothSettings();
+            if (settingsSaved) {
+                localStorage.removeItem(EVENT_TEXT_STORAGE_KEY);
+                document.getElementById('settings-status').textContent =
+                    'Booth settings were reset to their defaults on this device.';
+            }
+
+            if (state.currentScreen === 'review') {
+                renderFinalCanvas();
+            }
         }
