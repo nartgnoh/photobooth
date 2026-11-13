@@ -9,6 +9,7 @@ A browser-based photo booth for events. Use a phone, tablet, or computer camera 
 - A slightly slower countdown, a “Ready?” prompt before every photo countdown, a one-second preview after each photo in multi-photo layouts, countdown beeps, and a camera-style shutter sound for each photo.
 - Bold event title, calendar-selected date, and message with individually selectable fonts for each text field (including Courier New, Times New Roman, Cooper Black, New Century Schoolbook, Optima, and Helvetica), plus an optional logo on photo designs.
 - Built-in frame themes that also recolor the booth interface, customizable colors, and selectable print backgrounds, including a custom image from the device, with translucent, theme-colored caption frames.
+- Guests can choose a frame theme for an individual photo in the print preview; it changes the print design colors without changing the booth theme and resets for the next guest.
 - Booth configuration is saved in the current browser on the current device, including event details, design choices, and uploaded logo/background images; settings can be restored to their defaults from the configuration panel.
 - Photo layouts and decorative frames are scaled slightly inward from the edge, while the selected background continues to the edge, helping keep important content inside the SELPHY's workable print area when AirPrint crops a little.
 - Each photo strip is additionally shifted 2 mm inward from the outer side of the sheet, without changing the strips' size or aspect ratio.

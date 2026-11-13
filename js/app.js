@@ -22,8 +22,20 @@ const EVENT_FONT_OPTIONS = [
     { value: 'Times New Roman', label: 'Times New Roman' }
 ];
 
+const GUEST_BORDER_THEMES = [
+    { id: 'gold', label: 'Elegance Gold' },
+    { id: 'sage', label: 'Botanical Sage' },
+    { id: 'minimal', label: 'Minimal Modern' },
+    { id: 'rose', label: 'Rose Romance' },
+    { id: 'ocean', label: 'Coastal Blue' },
+    { id: 'lavender', label: 'Lavender' },
+    { id: 'terracotta', label: 'Terracotta' },
+    { id: 'midnight', label: 'Midnight' }
+];
+
 let boothSettingsDatabasePromise = null;
 let boothSettingsSaveTimeout = null;
+let galleryWriteQueue = Promise.resolve();
 
 const state = {
 
@@ -47,12 +59,14 @@ const state = {
 
             borderStyle: 'classic',
 
+            guestPrintTheme: null,
+
             capturedImages: [],
 
             eventData: {
 
-                title: "DENNIS & HONG'S WEDDING",
-                date: "2028-05-20",
+                title: "DENNIS & HONG'S ENGAGEMENT PARTY",
+                date: "2027-01-09",
                 subtitle: "Thank you for joining us!",
                 fonts: {
                     title: 'Playfair Display',
@@ -91,6 +105,8 @@ const state = {
             recentGallery: [],
 
             galleryStorageError: '',
+
+            galleryMutationCount: 0,
 
             autoResetTimer: null,
 
@@ -957,7 +973,9 @@ const state = {
 
             canvas.height = H;
 
-            const themeColors = getOverlayThemeColors();
+            const themeColors = state.guestPrintTheme
+                ? getOverlayThemeColors(state.guestPrintTheme)
+                : getOverlayThemeColors();
             const bgColor = themeColors.background;
             const fontColor = themeColors.text;
             const accentColor = themeColors.accent;
@@ -1042,7 +1060,7 @@ const state = {
             const template = state.selectedTemplate;
             if (template === 'single') {
                 drawPhotoFrame(ctx, images[0], 220, 100, 1340, 765, accentColor, 7);
-                drawSingleEventCaption(ctx, fontColor, accentColor, W);
+                drawSingleEventCaption(ctx, fontColor, accentColor, bgColor, W);
                 return;
             }
 
@@ -1123,7 +1141,7 @@ const state = {
                 const detailsWidth = 630;
                 const detailsX = (featuredPhotoX + featuredPhotoWidth + W - 30 - detailsWidth) / 2 - 24;
                 drawPhotoFrame(ctx, images[0], featuredPhotoX, 105, featuredPhotoWidth, 555, accentColor, 6);
-                drawEventDetails(ctx, fontColor, accentColor, detailsX, 145, detailsWidth, 465, 53, logoImage);
+                drawEventDetails(ctx, fontColor, accentColor, bgColor, detailsX, 145, detailsWidth, 465, 53, logoImage);
 
                 const photoY = 760;
                 const photoWidth = 500;
@@ -1153,7 +1171,7 @@ const state = {
                 });
 
                 const captionY = (logoImage ? 1280 : 1225) - 26;
-                drawPortraitEventCaption(ctx, W, fontColor, accentColor, logoImage, captionY);
+                drawPortraitEventCaption(ctx, W, fontColor, accentColor, bgColor, logoImage, captionY);
             }
         }
 
@@ -1250,7 +1268,7 @@ const state = {
             ctx.drawImage(image, centerX - width / 2, topY + (maxHeight - height) / 2, width, height);
         }
 
-        function drawSingleEventCaption(ctx, fontColor, accentColor, canvasWidth) {
+        function drawSingleEventCaption(ctx, fontColor, accentColor, backgroundColor, canvasWidth) {
             const centerX = canvasWidth / 2;
             const textWidth = canvasWidth - 240;
             const plaqueY = 882;
@@ -1285,7 +1303,7 @@ const state = {
                 });
             }
 
-            drawThemedTextPlaque(ctx, 150, plaqueY, canvasWidth - 300, plaqueHeight, accentColor, getOverlayThemeColors().background, 0.82);
+            drawThemedTextPlaque(ctx, 150, plaqueY, canvasWidth - 300, plaqueHeight, accentColor, backgroundColor, 0.8);
 
             ctx.save();
             ctx.textAlign = "center";
@@ -1303,7 +1321,7 @@ const state = {
             ctx.restore();
         }
 
-        function drawPortraitEventCaption(ctx, canvasWidth, fontColor, accentColor, logoImage) {
+        function drawPortraitEventCaption(ctx, canvasWidth, fontColor, accentColor, backgroundColor, logoImage) {
             const centerX = canvasWidth / 2;
             const plaqueY = logoImage ? 1280 : 1225;
             const plaqueHeight = 475;
@@ -1314,7 +1332,7 @@ const state = {
                 drawLogoImage(ctx, logoImage, centerX, 1180, 190, 90);
             }
 
-            drawThemedTextPlaque(ctx, 110, plaqueY, canvasWidth - 220, plaqueHeight, accentColor, getOverlayThemeColors().background);
+            drawThemedTextPlaque(ctx, 110, plaqueY, canvasWidth - 220, plaqueHeight, accentColor, backgroundColor);
 
             ctx.save();
             ctx.textAlign = "center";
@@ -1344,7 +1362,7 @@ const state = {
             if (state.eventData.subtitle) {
                 ctx.font = `700 34px '${state.eventData.fonts.subtitle}', sans-serif`;
                 wrapCaptionText(ctx, state.eventData.subtitle, maxTextWidth, 2).forEach(text => {
-                    lines.push({ text, font: ctx.font, color: "#888888", height: 44 });
+                    lines.push({ text, font: ctx.font, color: fontColor, height: 44 });
                 });
             }
 
@@ -1389,13 +1407,13 @@ const state = {
             return lines;
         }
 
-        function drawEventDetails(ctx, fontColor, accentColor, x, y, width, height, titleSize, logoImage = null) {
+        function drawEventDetails(ctx, fontColor, accentColor, backgroundColor, x, y, width, height, titleSize, logoImage = null) {
             const centerX = x + width / 2;
             const title = state.eventData.title;
             const maxLineWidth = width - 40;
             const logoHeight = logoImage ? 82 : 0;
 
-            drawThemedTextPlaque(ctx, x + 8, y + 8, width - 16, height - 16, accentColor, getOverlayThemeColors().background);
+            drawThemedTextPlaque(ctx, x + 8, y + 8, width - 16, height - 16, accentColor, backgroundColor);
 
             ctx.save();
             ctx.textAlign = "center";
@@ -1436,7 +1454,7 @@ const state = {
             if (state.eventData.subtitle) {
                 lines.push({
                     text: state.eventData.subtitle,
-                    color: "#888888",
+                    color: fontColor,
                     font: `700 20px '${state.eventData.fonts.subtitle}', sans-serif`,
                     height: 28
                 });
@@ -1464,7 +1482,7 @@ const state = {
             ctx.restore();
         }
 
-        function drawThemedTextPlaque(ctx, x, y, width, height, accentColor, backgroundColor, fillAlpha = 0.82) {
+        function drawThemedTextPlaque(ctx, x, y, width, height, accentColor, backgroundColor, fillAlpha = 0.8) {
             if (state.printBackground === 'theme') return;
 
             const inset = 8;
@@ -1662,6 +1680,7 @@ const state = {
             document.querySelectorAll('.overlay-theme-option').forEach(button => {
                 button.setAttribute('aria-pressed', String(button.dataset.theme === theme));
             });
+            syncBorderStyleOptions();
             schedulePersistentBoothSettingsSave();
             renderFinalCanvas();
         }
@@ -1692,6 +1711,7 @@ const state = {
                 button.setAttribute('aria-pressed', 'false');
             });
             document.getElementById('custom-theme-status').textContent = 'Custom colors applied.';
+            syncBorderStyleOptions();
             schedulePersistentBoothSettingsSave();
             renderFinalCanvas();
         }
@@ -1738,8 +1758,65 @@ const state = {
             renderFinalCanvas();
         }
 
+        function updateGuestPrintTheme(themeId) {
+            if (!GUEST_BORDER_THEMES.some(theme => theme.id === themeId)) {
+                console.error(`Unknown guest photo theme: ${themeId}`);
+                return;
+            }
+
+            state.guestPrintTheme = themeId;
+            syncBorderStyleOptions();
+            if (state.currentScreen === 'review' && state.capturedImages.length > 0) {
+                renderFinalCanvas();
+            }
+        }
+
+        function renderGuestPrintThemeOptions() {
+            const container = document.getElementById('guest-print-theme-options');
+            if (!container) {
+                console.error('Guest print theme options container was not found.');
+                return;
+            }
+
+            container.replaceChildren();
+            GUEST_BORDER_THEMES.forEach(({ id, label }) => {
+                const color = getOverlayThemeColors(id).accent;
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'flex min-w-0 flex-col items-center gap-1 rounded-lg border border-champagne p-2 text-center text-[10px] leading-tight text-gray-600 transition hover:border-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold';
+                button.setAttribute('aria-label', label);
+                const selected = state.guestPrintTheme === id ||
+                    (state.guestPrintTheme === null && state.overlayTheme === id);
+                button.setAttribute('aria-pressed', String(selected));
+                if (selected) {
+                    button.style.borderColor = color;
+                    button.style.borderWidth = '2px';
+                }
+                button.onclick = () => updateGuestPrintTheme(id);
+
+                const swatch = document.createElement('span');
+                swatch.className = 'h-5 w-5 rounded-full border border-black/10';
+                swatch.style.backgroundColor = color;
+                swatch.setAttribute('aria-hidden', 'true');
+
+                const name = document.createElement('span');
+                name.textContent = label;
+                button.append(swatch, name);
+                container.appendChild(button);
+            });
+        }
+
         function syncBorderStyleOptions() {
-            PhotoBoothBorders.syncOptions(state.borderStyle, getOverlayThemeColors().accent);
+            const themeAccent = getOverlayThemeColors().accent;
+            PhotoBoothBorders.syncOptions(state.borderStyle, themeAccent);
+            if (state.guestPrintTheme) {
+                PhotoBoothBorders.syncOptions(
+                    state.borderStyle,
+                    getOverlayThemeColors(state.guestPrintTheme).accent,
+                    'review-border-options'
+                );
+            }
+            renderGuestPrintThemeOptions();
         }
 
         function handleLogoUpload(event) {
@@ -1919,26 +1996,60 @@ const state = {
             }
         }
 
-        async function saveToRecentGallery(dataUrl) {
-            state.recentGallery.unshift(dataUrl);
-            state.recentGallery = state.recentGallery.slice(0, 12);
-            state.galleryStorageError = '';
-            renderGalleryGrid();
+        async function writeRecentGallery(photos) {
+            const database = await openBoothSettingsDatabase();
+            await new Promise((resolve, reject) => {
+                const transaction = database.transaction(BOOTH_GALLERY_STORE, 'readwrite');
+                transaction.objectStore(BOOTH_GALLERY_STORE).put(photos, BOOTH_GALLERY_KEY);
+                transaction.oncomplete = resolve;
+                transaction.onerror = () => reject(transaction.error || new Error('Unable to save recent photos.'));
+                transaction.onabort = () => reject(transaction.error || new Error('Saving recent photos was interrupted.'));
+            });
+        }
 
+        async function updateRecentGallery(updatePhotos, failureMessage) {
+            state.galleryMutationCount++;
+            renderGalleryGrid();
+            const update = galleryWriteQueue.then(async () => {
+                const photos = updatePhotos(state.recentGallery);
+                await writeRecentGallery(photos);
+                state.recentGallery = photos;
+                state.galleryStorageError = '';
+            });
+            galleryWriteQueue = update.catch(() => {});
             try {
-                const database = await openBoothSettingsDatabase();
-                await new Promise((resolve, reject) => {
-                    const transaction = database.transaction(BOOTH_GALLERY_STORE, 'readwrite');
-                    transaction.objectStore(BOOTH_GALLERY_STORE).put(state.recentGallery, BOOTH_GALLERY_KEY);
-                    transaction.oncomplete = resolve;
-                    transaction.onerror = () => reject(transaction.error || new Error('Unable to save recent photos.'));
-                    transaction.onabort = () => reject(transaction.error || new Error('Saving recent photos was interrupted.'));
-                });
+                await update;
             } catch (error) {
-                state.galleryStorageError = 'Recent photos are visible for now but could not be saved on this device.';
-                console.error('Unable to save recent photos.', error);
+                state.galleryStorageError = failureMessage;
+                console.error(failureMessage, error);
+            } finally {
+                state.galleryMutationCount--;
                 renderGalleryGrid();
             }
+        }
+
+        async function saveToRecentGallery(dataUrl) {
+            await updateRecentGallery(
+                photos => [dataUrl, ...photos].slice(0, 12),
+                'Recent photos could not be saved on this device.'
+            );
+        }
+
+        async function deleteGalleryImage(index) {
+            if (state.galleryMutationCount > 0) return;
+            await updateRecentGallery(
+                photos => photos.filter((photo, photoIndex) => photoIndex !== index),
+                'The photo could not be deleted from this device.'
+            );
+        }
+
+        async function deleteAllGalleryImages() {
+            if (state.galleryMutationCount > 0 || state.recentGallery.length === 0) return;
+            if (!window.confirm('Delete all recent photos from this device? This cannot be undone.')) return;
+            await updateRecentGallery(
+                () => [],
+                'Recent photos could not be deleted from this device.'
+            );
         }
 
         function toggleGalleryModal() {
@@ -1963,6 +2074,8 @@ const state = {
 
             const grid = document.getElementById('gallery-grid');
             document.getElementById('gallery-status').textContent = state.galleryStorageError;
+            const deleteAllButton = document.getElementById('gallery-delete-all');
+            deleteAllButton.disabled = state.recentGallery.length === 0 || state.galleryMutationCount > 0;
 
             grid.innerHTML = "";
 
@@ -1978,21 +2091,34 @@ const state = {
 
                 item.className = "relative group rounded-xl overflow-hidden border border-champagne shadow-sm bg-warmSand";
 
-                item.innerHTML = `
+                const image = document.createElement('img');
+                image.src = imgData;
+                image.alt = `Saved event photo ${idx + 1}`;
+                image.className = 'w-full h-auto object-cover';
 
-                    <img src="${imgData}" class="w-full h-auto object-cover">
+                const actions = document.createElement('div');
+                actions.className = 'flex items-center justify-between gap-2 p-2';
 
-                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center space-x-2">
+                const printButton = document.createElement('button');
+                printButton.type = 'button';
+                printButton.disabled = state.galleryMutationCount > 0;
+                printButton.className = 'inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-medium text-charcoal shadow-sm transition hover:bg-gold hover:text-white disabled:cursor-not-allowed disabled:opacity-50';
+                printButton.title = 'Print photo';
+                printButton.setAttribute('aria-label', `Print saved event photo ${idx + 1}`);
+                printButton.innerHTML = '<i data-lucide="printer" class="h-4 w-4"></i><span>Print</span>';
+                printButton.onclick = () => reprintGalleryImage(imgData);
 
-                        <button onclick="reprintGalleryImage('${imgData}')" class="p-2 bg-white rounded-full text-charcoal shadow hover:bg-gold hover:text-white transition" title="Print Photo">
+                const deleteButton = document.createElement('button');
+                deleteButton.type = 'button';
+                deleteButton.disabled = state.galleryMutationCount > 0;
+                deleteButton.className = 'inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50';
+                deleteButton.title = 'Delete photo';
+                deleteButton.setAttribute('aria-label', `Delete saved event photo ${idx + 1}`);
+                deleteButton.innerHTML = '<i data-lucide="trash-2" class="h-4 w-4"></i><span>Delete</span>';
+                deleteButton.onclick = () => deleteGalleryImage(idx);
 
-                            <i data-lucide="printer" class="w-4 h-4"></i>
-
-                        </button>
-
-                    </div>
-
-                `;
+                actions.append(printButton, deleteButton);
+                item.append(image, actions);
 
                 grid.appendChild(item);
 
@@ -2054,6 +2180,8 @@ const state = {
             state.autoResetPauseReasons.clear();
 
             state.capturedImages = [];
+            state.guestPrintTheme = null;
+            syncBorderStyleOptions();
 
             switchScreen('mode');
 
@@ -2250,7 +2378,7 @@ const state = {
 
         async function saveAdminSettings() {
             state.selectedCameraId = DOM.cameraSelect.value;
-            state.eventData.title = document.getElementById('cfg-title').value.trim().toUpperCase() || "DENNIS & HONG'S WEDDING";
+            state.eventData.title = document.getElementById('cfg-title').value.trim().toUpperCase() || "DENNIS & HONG'S ENGAGEMENT PARTY";
 
             state.eventData.date = document.getElementById('cfg-date-picker').value;
             state.eventData.subtitle = document.getElementById('cfg-subtitle').value.trim();
@@ -2294,10 +2422,11 @@ const state = {
                 text: '#2C2A29'
             };
             state.borderStyle = 'classic';
+            state.guestPrintTheme = null;
             state.eventLogoDataUrl = '';
             state.eventData = {
-                title: "DENNIS & HONG'S WEDDING",
-                date: '2028-05-20',
+                title: "DENNIS & HONG'S ENGAGEMENT PARTY",
+                date: '2027-01-09',
                 subtitle: 'Thank you for joining us!',
                 fonts: {
                     title: 'Playfair Display',

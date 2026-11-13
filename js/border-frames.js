@@ -43,8 +43,14 @@
         container.classList.add('border-style-options', `border-style-options--${density}`);
     }
 
-    function syncOptions(selectedStyle, accentColor) {
-        document.querySelectorAll('.border-style-option').forEach(button => {
+    function syncOptions(selectedStyle, accentColor, containerId = null) {
+        const container = containerId ? document.getElementById(containerId) : document;
+        if (!container) {
+            console.error(`Border options container "${containerId}" was not found.`);
+            return;
+        }
+
+        container.querySelectorAll('.border-style-option').forEach(button => {
             const selected = button.dataset.borderStyle === selectedStyle;
             button.setAttribute('aria-pressed', String(selected));
             button.style.setProperty('--border-accent', accentColor);
